@@ -36,7 +36,7 @@ class LLMService:
             model_list.append({
                 "model_name": "nexus-fast",
                 "litellm_params": {
-                    "model": "openai/meta/Llama-4-Scout-17B-16E-Instruct",
+                    "model": "openai/gpt-4o",
                     "api_key": settings.OPENAI_API_KEY,
                     "api_base": settings.OPENAI_API_BASE
                 }
@@ -44,7 +44,7 @@ class LLMService:
             model_list.append({
                 "model_name": "nexus-shadow",
                 "litellm_params": {
-                    "model": "openai/meta/Llama-4-Scout-17B-16E-Instruct",
+                    "model": "openai/gpt-4o-mini",
                     "api_key": settings.OPENAI_API_KEY,
                     "api_base": settings.OPENAI_API_BASE
                 }
@@ -239,11 +239,18 @@ class LLMService:
         if "To use a tool, reply EXACTLY with:" in system_msg:
             has_tool_result = any("TOOL_RESULT:" in m.get("content", "") for m in messages)
             if not has_tool_result:
-                # First iteration: call tool
-                return 'TOOL: search_linkedin({"name": "Priya Sharma", "company": "RazorX Fintech"})'
+                # First iteration: extract names from the user prompt
+                # Parse the contact name from the prompt dynamically
+                import re
+                name_match = re.search(r'\"name\":\s*\"([^\"]+)\"', prompt)
+                contact_name = name_match.group(1) if name_match else "Unknown Contact"
+                company_match = re.search(r'at\s+([\w\s]+?):', prompt) or re.search(r'company[\"\s:]+([\w\s]+)', prompt)
+                company_name = company_match.group(1).strip() if company_match else "Unknown Company"
+                return f'TOOL: search_linkedin({{"name": "{contact_name}", "company": "{company_name}"}})'
             else:
-                # Second iteration: return final answer
-                return 'FINAL_ANSWER: [{"name": "Priya Sharma", "title": "Head of People Operations", "linkedin": "linkedin.com/in/priyasharma", "email": "priya.sharma@razorx.com", "phone": "+1-555-0199", "joined_date": "2023-01-15"}]'
+                # Second iteration: parse contacts from the tool result and return as final answer
+                tool_result_msg = [m.get("content", "") for m in messages if "TOOL_RESULT:" in m.get("content", "")]
+                return f'FINAL_ANSWER: {tool_result_msg[-1].replace("TOOL_RESULT: ", "") if tool_result_msg else "[]"}'
         
         # 1. Shadow Agent Request
         if "shadow_agent" in prompt or "skeptical analyst" in prompt:
@@ -263,7 +270,7 @@ class LLMService:
 
         # 3. Summary Agent Request
         if "actionable recommendation" in prompt or "outreach" in prompt:
-            return "Based on the recent Series A funding of $15M and hiring Priya Sharma as Head of People Operations, I recommend immediate outreach. Highlight how our HR platform automates onboarding for high-growth tech startups. Recommended Outreach Subject: Accelerating Priya Sharma's vision at RazorX. outreach_body: Hi Priya, congrats on joining RazorX and the Series A round..."
+            return "Based on the enrichment data, I recommend immediate outreach. Highlight how our HR platform automates onboarding for high-growth tech startups. The company shows strong growth signals and fits the primary SaaS targeting profiles."
 
         # 4. General fallback
         return "I have processed the request and verified the company information. The lead has high growth signals and fits the primary SaaS targeting profiles."

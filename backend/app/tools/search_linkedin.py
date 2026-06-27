@@ -1,10 +1,20 @@
 import asyncio
+from duckduckgo_search import DDGS
+import json
 
 async def search_linkedin(name: str, company: str) -> str:
-    """Searches LinkedIn to find the email and phone number of a person at a company."""
-    await asyncio.sleep(0.5) # Simulate network delay
+    """Searches LinkedIn and the web to find the email and phone number of a person at a company."""
+    query = f"{name} {company} LinkedIn contact email phone"
     
-    if "priya" in name.lower() or "razorx" in company.lower():
-        return '{"email": "priya.sharma@razorx.com", "phone": "+1-555-0199", "linkedin": "linkedin.com/in/priyasharma"}'
+    loop = asyncio.get_running_loop()
     
-    return '{"email": "unknown", "phone": "unknown", "linkedin": "unknown"}'
+    def _search():
+        try:
+            with DDGS() as ddgs:
+                results = [r for r in ddgs.text(query, max_results=3)]
+                return results
+        except Exception as e:
+            return [{"error": str(e)}]
+            
+    results = await loop.run_in_executor(None, _search)
+    return json.dumps(results)

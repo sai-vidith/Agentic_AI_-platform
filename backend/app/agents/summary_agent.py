@@ -53,8 +53,9 @@ class SummaryAgent(BaseNexusAgent):
         }
 
     async def execute_with_fallback(self, task_input: Dict[str, Any]) -> Dict[str, Any]:
-        company_name = task_input.get("company_name", "RazorX Fintech")
-        contact_name = "Priya Sharma"
+        company_name = task_input.get("company_name", "Unknown Company")
+        contacts = task_input.get("contacts", [])
+        contact_name = contacts[0].get("name", "Hiring Manager") if contacts else "Hiring Manager"
         return {
             "outreach_template": f"Subject: Managing growth at {company_name}\n\nHi {contact_name},\n\nCongrats on the recent funding news! I noticed you are expanding the team and wanted to reach out regarding our HR scaling platform...",
             "evidence_chain": ["Signal: Recent Series A funding announcement."]
