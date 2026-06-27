@@ -146,7 +146,7 @@ export default function DashboardView({
       {/* Bottom split panel: Live Log and Activity list */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-[300px]">
         {/* WebSocket Live Log Console */}
-        <div className="lg:col-span-5 glass-panel border border-slate-900 p-5 rounded-2xl flex flex-col bg-slate-950/40 relative">
+        <div className="lg:col-span-5 glass-panel border border-slate-900 p-5 rounded-2xl flex flex-col bg-slate-950/40 relative h-[400px]">
           <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
             <h3 className="text-xs font-bold text-slate-300 font-mono uppercase tracking-wider flex items-center gap-2">
               <span className="relative flex h-2 w-2">
@@ -186,8 +186,8 @@ export default function DashboardView({
           </div>
         </div>
 
-        {/* Live System Activity Feed */}
-        <div className="lg:col-span-7 glass-panel border border-slate-900 p-5 rounded-2xl flex flex-col bg-slate-950/40">
+        {/* Live System Activity Feed - Fixed height for internal scrolling */}
+        <div className="lg:col-span-7 glass-panel border border-slate-900 p-5 rounded-2xl flex flex-col bg-slate-950/40 h-[400px]">
           <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
             <h3 className="text-xs font-bold text-slate-300 font-mono uppercase tracking-wider">
               Recent Discoveries
