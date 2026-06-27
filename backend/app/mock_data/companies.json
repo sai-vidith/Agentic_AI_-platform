@@ -1,0 +1,57 @@
+[
+  {
+    "name": "RazorX Fintech",
+    "industry": "Fintech",
+    "employees": 87,
+    "founded": 2022,
+    "hq": "Bangalore, India",
+    "tech_stack": ["Python", "AWS", "React", "PostgreSQL", "Slack", "Google Workspace"],
+    "current_hr_tool": "Google Sheets",
+    "recent_funding": {"round": "Series A", "amount_usd": 15000000, "date": "2026-06-01"},
+    "growth_rate": "45% headcount growth in 6 months"
+  },
+  {
+    "name": "AcmeCorp",
+    "industry": "Software",
+    "employees": 150,
+    "founded": 2020,
+    "hq": "San Francisco, US",
+    "tech_stack": ["Node.js", "GCP", "Next.js", "MongoDB", "Slack", "GitHub"],
+    "current_hr_tool": "BambooHR",
+    "recent_funding": {"round": "Series B", "amount_usd": 30000000, "date": "2026-05-15"},
+    "growth_rate": "30% headcount growth in last year"
+  },
+  {
+    "name": "ApexData",
+    "industry": "AI",
+    "employees": 45,
+    "founded": 2024,
+    "hq": "London, UK",
+    "tech_stack": ["Python", "PyTorch", "AWS", "GitHub", "Slack"],
+    "current_hr_tool": "Excel",
+    "recent_funding": {"round": "Seed", "amount_usd": 4000000, "date": "2026-06-20"},
+    "growth_rate": "100% headcount growth in 3 months"
+  },
+  {
+    "name": "CloudGuard",
+    "industry": "Cybersecurity",
+    "employees": 220,
+    "founded": 2019,
+    "hq": "Tel Aviv, Israel",
+    "tech_stack": ["Go", "Kubernetes", "AWS", "GitHub", "Slack", "Google Workspace"],
+    "current_hr_tool": "Workday",
+    "recent_funding": {"round": "Series C", "amount_usd": 60000000, "date": "2026-04-10"},
+    "growth_rate": "15% headcount growth"
+  },
+  {
+    "name": "LegacySteel",
+    "industry": "Manufacturing",
+    "employees": 4500,
+    "founded": 1952,
+    "hq": "Pittsburgh, US",
+    "tech_stack": ["SAP", "Oracle", "Microsoft Teams"],
+    "current_hr_tool": "SAP HR",
+    "recent_funding": null,
+    "growth_rate": "-2% declining headcount"
+  }
+]

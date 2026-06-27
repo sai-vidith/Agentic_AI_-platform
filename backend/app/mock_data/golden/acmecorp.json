@@ -1,0 +1,42 @@
+{
+  "company": {
+    "name": "AcmeCorp",
+    "industry": "Software",
+    "employees": 150,
+    "founded": 2020,
+    "hq": "San Francisco, US",
+    "tech_stack": ["Node.js", "GCP", "Next.js", "MongoDB", "Slack", "GitHub"],
+    "current_hr_tool": "BambooHR",
+    "recent_funding": {"round": "Series B", "amount_usd": 30000000, "date": "2026-05-15"},
+    "growth_rate": "30% headcount growth in last year"
+  },
+  "contacts": [
+    {
+      "name": "Sarah Jenkins",
+      "title": "VP of People",
+      "email": "sarah.jenkins@acmecorp.com",
+      "phone": "+1-415-555-0199",
+      "linkedin": "linkedin.com/in/sarah-jenkins-acme",
+      "joined_date": "2024-08-10"
+    },
+    {
+      "name": "John Doe",
+      "title": "Engineering Manager",
+      "email": "john.doe@acmecorp.com",
+      "phone": "+1-415-555-0120",
+      "linkedin": "linkedin.com/in/johndoe-acme",
+      "joined_date": "2021-02-15"
+    }
+  ],
+  "triggers": [
+    {"type": "funding", "detail": "Raised $30M Series B in May 2026"},
+    {"type": "hiring", "detail": "Hiring for remote engineering roles"},
+    {"type": "leadership", "detail": "Sarah Jenkins serves as VP of People since late 2024"}
+  ],
+  "knowledge_graph_edges": [
+    {"from": "AcmeCorp", "rel": "FUNDED_BY", "to": "Index Ventures"},
+    {"from": "AcmeCorp", "rel": "USES_TECH", "to": "GCP"},
+    {"from": "Sarah Jenkins", "rel": "WORKS_AT", "to": "AcmeCorp"},
+    {"from": "John Doe", "rel": "WORKS_AT", "to": "AcmeCorp"}
+  ]
+}

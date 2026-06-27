@@ -1,0 +1,15 @@
+# Ontology schema for NexusAI Knowledge Graph
+
+# Entity Types
+ENTITY_COMPANY = "Company"
+ENTITY_PERSON = "Person"
+ENTITY_TECHNOLOGY = "Technology"
+ENTITY_VC = "VentureCapital"
+
+# Relation types
+REL_WORKS_AT = "WORKS_AT"
+REL_PREVIOUSLY_AT = "PREVIOUSLY_AT"
+REL_FUNDED_BY = "FUNDED_BY"
+REL_COMPETES_WITH = "COMPETES_WITH"
+REL_USES_TECH = "USES_TECH"
+REL_PARTNERS_WITH = "PARTNERS_WITH"

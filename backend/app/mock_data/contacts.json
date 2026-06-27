@@ -1,0 +1,70 @@
+[
+  {
+    "company_name": "RazorX Fintech",
+    "contacts": [
+      {
+        "name": "Priya Sharma",
+        "title": "Head of People Operations",
+        "email": "priya.sharma@razorx.in",
+        "phone": "+91-9876543210",
+        "linkedin": "linkedin.com/in/priya-sharma-razorx",
+        "joined_date": "2026-03-15"
+      },
+      {
+        "name": "Amit Patel",
+        "title": "Talent Acquisition Lead",
+        "email": "amit.patel@razorx.in",
+        "phone": "+91-9876543211",
+        "linkedin": "linkedin.com/in/amit-patel-razorx",
+        "joined_date": "2025-11-01"
+      }
+    ]
+  },
+  {
+    "company_name": "AcmeCorp",
+    "contacts": [
+      {
+        "name": "Sarah Jenkins",
+        "title": "VP of People",
+        "email": "sarah.jenkins@acmecorp.com",
+        "phone": "+1-415-555-0199",
+        "linkedin": "linkedin.com/in/sarah-jenkins-acme",
+        "joined_date": "2024-08-10"
+      },
+      {
+        "name": "John Doe",
+        "title": "Engineering Manager",
+        "email": "john.doe@acmecorp.com",
+        "phone": "+1-415-555-0120",
+        "linkedin": "linkedin.com/in/johndoe-acme",
+        "joined_date": "2021-02-15"
+      }
+    ]
+  },
+  {
+    "company_name": "ApexData",
+    "contacts": [
+      {
+        "name": "Alex Mercer",
+        "title": "Co-Founder & CEO",
+        "email": "alex@apexdata.ai",
+        "phone": "+44-20-7946-0958",
+        "linkedin": "linkedin.com/in/alexmercer-apexdata",
+        "joined_date": "2024-01-10"
+      }
+    ]
+  },
+  {
+    "company_name": "CloudGuard",
+    "contacts": [
+      {
+        "name": "David Cohen",
+        "title": "HR Director",
+        "email": "david.cohen@cloudguard.io",
+        "phone": "+972-3-555-1234",
+        "linkedin": "linkedin.com/in/davidcohen-cloudguard",
+        "joined_date": "2025-02-28"
+      }
+    ]
+  }
+]

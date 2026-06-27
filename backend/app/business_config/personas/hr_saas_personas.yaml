@@ -1,0 +1,30 @@
+domain: hr_saas
+personas:
+  - id: head_of_people
+    title_patterns:
+      - "Head of People"
+      - "Head of People Operations"
+      - "VP of People"
+      - "Director of People"
+      - "VP of HR"
+      - "HR Director"
+    priority: 1
+    description: "Primary buyer, cares about employee retention, scaling processes, automation."
+  - id: talent_acquisition_lead
+    title_patterns:
+      - "Head of Talent Acquisition"
+      - "VP of Talent"
+      - "Talent Acquisition Lead"
+      - "Recruitment Director"
+      - "Head of Recruiting"
+    priority: 2
+    description: "Key influencer, cares about hiring speed, applicant experience, scaling pipeline."
+  - id: coo_founder
+    title_patterns:
+      - "COO"
+      - "Chief Operating Officer"
+      - "Founder"
+      - "Co-Founder"
+      - "CEO"
+    priority: 3
+    description: "Decision maker in smaller startups (under 80 employees)."

@@ -1,0 +1,44 @@
+{
+  "company": {
+    "name": "RazorX Fintech",
+    "industry": "Fintech",
+    "employees": 87,
+    "founded": 2022,
+    "hq": "Bangalore, India",
+    "tech_stack": ["Python", "AWS", "React", "PostgreSQL", "Slack", "Google Workspace"],
+    "current_hr_tool": "Google Sheets",
+    "recent_funding": {"round": "Series A", "amount_usd": 15000000, "date": "2026-06-01"},
+    "growth_rate": "45% headcount growth in 6 months"
+  },
+  "contacts": [
+    {
+      "name": "Priya Sharma",
+      "title": "Head of People Operations",
+      "email": "priya.sharma@razorx.in",
+      "phone": "+91-9876543210",
+      "linkedin": "linkedin.com/in/priya-sharma-razorx",
+      "joined_date": "2026-03-15"
+    },
+    {
+      "name": "Amit Patel",
+      "title": "Talent Acquisition Lead",
+      "email": "amit.patel@razorx.in",
+      "phone": "+91-9876543211",
+      "linkedin": "linkedin.com/in/amit-patel-razorx",
+      "joined_date": "2025-11-01"
+    }
+  ],
+  "triggers": [
+    {"type": "funding", "detail": "Raised $15M Series A from Sequoia India"},
+    {"type": "hiring", "detail": "Posted 23 job openings in last 30 days"},
+    {"type": "leadership", "detail": "Priya Sharma joined as Head of People Ops 3 months ago"}
+  ],
+  "knowledge_graph_edges": [
+    {"from": "RazorX Fintech", "rel": "FUNDED_BY", "to": "Sequoia India"},
+    {"from": "RazorX Fintech", "rel": "COMPETES_WITH", "to": "PayTM Money"},
+    {"from": "RazorX Fintech", "rel": "USES_TECH", "to": "AWS"},
+    {"from": "Priya Sharma", "rel": "WORKS_AT", "to": "RazorX Fintech"},
+    {"from": "Priya Sharma", "rel": "PREVIOUSLY_AT", "to": "Zoho People"},
+    {"from": "Amit Patel", "rel": "WORKS_AT", "to": "RazorX Fintech"}
+  ]
+}

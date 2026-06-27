@@ -1,0 +1,32 @@
+domain: hr_saas
+description: "Ideal Customer Profile for HR & Recruitment Software"
+min_employees: 20
+max_employees: 500
+target_industries:
+  - "Fintech"
+  - "SaaS"
+  - "Software"
+  - "Cybersecurity"
+  - "AI"
+  - "Healthcare Technology"
+target_regions:
+  - "India"
+  - "US"
+  - "Europe"
+growth_criteria:
+  min_growth_rate: "20% headcount growth"
+  min_job_postings: 5
+tech_stack_preference:
+  - "Slack"
+  - "Google Workspace"
+  - "GitHub"
+disqualifying_signals:
+  - "declining headcount"
+  - "layoff news"
+  - "acquisition by large legacy conglomerate"
+icp_weighting:
+  employees: 0.2
+  industry: 0.2
+  growth: 0.3
+  tech_stack: 0.1
+  triggers: 0.2
