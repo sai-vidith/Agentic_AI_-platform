@@ -275,8 +275,4 @@ qualification_threshold: 70
 
 Built for XL Ventures AI Hackathon 2026.
 
----
 
-## License
-
-MIT
