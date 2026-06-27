@@ -75,19 +75,32 @@ class EnrichmentTool(BaseTool):
                 summary = " ".join([r.get("body", "") for r in results])
                 # We'll also grab some real executives!
                 contacts = []
-                with DDGS() as ddgs:
-                    contact_search = [r for r in ddgs.text(f"{company_name} (CEO OR Founder OR Head of HR OR VP People) site:linkedin.com/in/", max_results=3)]
-                
-                for r in contact_search:
-                    raw_title = r.get("title", "")
-                    contacts.append({
-                        "name": raw_title.replace(" - LinkedIn", "").strip(),
-                        "title": r.get("body", "")[:100],  # Give LLM a snippet to figure out exact title
-                        "email": "unknown",
-                        "phone": "unknown",
-                        "linkedin": r.get("href", ""),
-                        "joined_date": "Unknown"
-                    })
+                try:
+                    with DDGS() as ddgs:
+                        contact_search = [r for r in ddgs.text(f"{company_name} CEO founder leadership team linkedin", max_results=5)]
+                    
+                    for r in contact_search:
+                        raw_title = r.get("title", "")
+                        href = r.get("href", "")
+                        body = r.get("body", "")
+                        
+                        # Only use results that look like LinkedIn profiles
+                        if "linkedin.com/in/" in href:
+                            name = raw_title.replace(" - LinkedIn", "").replace(" | LinkedIn", "").strip()
+                            if " - " in name:
+                                name = name.split(" - ")[0].strip()
+                            if " | " in name:
+                                name = name.split(" | ")[0].strip()
+                            contacts.append({
+                                "name": name,
+                                "title": body[:120],
+                                "email": "unknown",
+                                "phone": "unknown",
+                                "linkedin": href,
+                                "joined_date": "Unknown"
+                            })
+                except Exception as e:
+                    print(f"[EnrichmentTool] Contact search error: {e}")
                 
                 return {
                     "company_data": {

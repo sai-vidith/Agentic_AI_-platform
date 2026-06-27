@@ -67,15 +67,15 @@ class LLMService:
                 }
             })
             
-        # Cerebras (configured as OpenAI-compatible for version compatibility)
-        if is_real_key(settings.CEREBRAS_API_KEY, "cerebras"):
-            model_list.append({
-                "model_name": "nexus-fast",
-                "litellm_params": {
-                    "model": "cerebras/llama-3.3-70b",
-                    "api_key": settings.CEREBRAS_API_KEY,
-                }
-            })
+        # Cerebras - DISABLED (model llama-3.3-70b not available on free tier)
+        # if is_real_key(settings.CEREBRAS_API_KEY, "cerebras"):
+        #     model_list.append({
+        #         "model_name": "nexus-fast",
+        #         "litellm_params": {
+        #             "model": "cerebras/llama-3.3-70b",
+        #             "api_key": settings.CEREBRAS_API_KEY,
+        #         }
+        #     })
             
         # Gemini
         if is_real_key(settings.GEMINI_API_KEY, "gemini"):
