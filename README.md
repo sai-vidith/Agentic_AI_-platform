@@ -26,7 +26,7 @@ NexusAI is a **6-layer Agentic AI platform** that autonomously discovers, qualif
 
 ## Architecture
 
-![NexusAI Architecture](nexusai_architecture_1782495294990.png)
+![NexusAI Architecture](./public/nexusai_architecture_1782495294990.png)
 
 ### Key Design Decisions
 
