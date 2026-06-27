@@ -103,11 +103,12 @@ export default function ObservabilityView({
               </div>
             ) : (
               traces.map((trace) => {
-                const isSelected = selectedTraceId === trace.id;
+                const id = trace.trace_id || trace.id;
+                const isSelected = selectedTraceId === id;
                 return (
                   <button
-                    key={trace.id}
-                    onClick={() => setSelectedTraceId(trace.id)}
+                    key={id}
+                    onClick={() => setSelectedTraceId(id)}
                     className={`w-full text-left p-3 border rounded-xl transition flex items-center justify-between text-xs ${
                       isSelected 
                         ? 'border-cyan-500/25 bg-cyan-500/5 text-cyan-300' 
@@ -119,7 +120,7 @@ export default function ObservabilityView({
                         {trace.metadata?.company_name || 'Workflow Run'}
                       </span>
                       <span className="text-[10px] font-mono text-slate-550">
-                        ID: {trace.id.substring(0, 8)}...
+                        ID: {id ? id.substring(0, 8) : 'unknown'}...
                       </span>
                     </div>
                     <ChevronRight className="h-4 w-4 shrink-0" />

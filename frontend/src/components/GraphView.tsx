@@ -25,7 +25,11 @@ export default function GraphView({
 }: GraphViewProps) {
   // Find which node is currently active (thinking)
   const activeNode = nodes.find(n => n.data.status === 'thinking');
-  const hasThoughts = Object.keys(streamingThoughts).length > 0;
+  // Find nodes that have run or are running
+  const activeOrCompletedNodes = nodes.filter(
+    (node) => node.data.status !== 'idle' || node.data.output || streamingThoughts[node.id]
+  );
+  const hasLogs = activeOrCompletedNodes.length > 0;
 
   return (
     <div className="flex-1 flex flex-col gap-4 overflow-hidden" style={{ height: '100%' }}>
@@ -34,7 +38,7 @@ export default function GraphView({
         <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
           Agent Topology Graph <Cpu className="h-5 w-5 text-cyan-400" />
         </h2>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-slate-450 mt-1">
           Visualizing topological execution path, agent statuses, and dynamic path pruning.
         </p>
       </div>
@@ -42,7 +46,7 @@ export default function GraphView({
       {/* Main split canvas */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
         {/* Left: React Flow diagram */}
-        <div className="lg:col-span-8 glass-panel border border-slate-900 rounded-2xl overflow-hidden bg-slate-950/40 relative flex flex-col min-h-[350px]">
+        <div className="lg:col-span-8 glass-panel border border-slate-900 rounded-2xl overflow-hidden bg-slate-950/40 relative flex flex-col min-h-[480px] lg:h-[550px]">
           <div className="absolute top-4 left-4 z-10 flex items-center gap-2.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950/90 text-[10px] font-bold font-mono text-slate-300">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
@@ -51,8 +55,8 @@ export default function GraphView({
             GRAPH INTERACTIVE · DRAG CANVAS
           </div>
 
-          <div className="flex-1" style={{ height: '100%' }}>
-            <ReactFlow nodes={nodes} edges={edges} fitView fitViewOptions={{ padding: 0.1 }}>
+          <div className="w-full h-full min-h-[400px] flex-1">
+            <ReactFlow nodes={nodes} edges={edges} fitView fitViewOptions={{ padding: 0.15 }}>
               <Controls />
               <Background color="#22d3ee" style={{ opacity: 0.03 }} gap={16} />
             </ReactFlow>
@@ -78,10 +82,12 @@ export default function GraphView({
 
             <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4">
               <AnimatePresence mode="wait">
-                {hasThoughts ? (
-                  Object.entries(streamingThoughts).map(([nodeId, thought]) => {
-                    const node = nodes.find(n => n.id === nodeId);
+                {hasLogs ? (
+                  activeOrCompletedNodes.map((node) => {
+                    const nodeId = node.id;
                     const isCurrentlyActive = activeNode?.id === nodeId;
+                    const thought = streamingThoughts[nodeId] || 
+                      (node.data.output ? JSON.stringify(node.data.output, null, 2) : 'Executing core logic...');
                     
                     return (
                       <motion.div
@@ -98,16 +104,16 @@ export default function GraphView({
                           } border`}>
                             {isCurrentlyActive ? 'Active' : 'Completed'}
                           </span>
-                          <h4 className="text-sm font-bold text-slate-100">{node?.data.label || nodeId}</h4>
+                          <h4 className="text-sm font-bold text-slate-100">{node.data.label || nodeId}</h4>
                         </div>
                         
-                        {node?.data.desc && (
+                        {node.data.desc && (
                           <p className="text-xs text-slate-450 italic leading-relaxed">
                             "{node.data.desc}"
                           </p>
                         )}
 
-                        <div className="border border-slate-900 rounded-xl p-3.5 bg-slate-950/80 mt-2 font-mono text-[10px] text-cyan-400 leading-relaxed shadow-inner">
+                        <div className="border border-slate-900 rounded-xl p-3.5 bg-slate-950/80 mt-2 font-mono text-[10px] text-cyan-400 leading-relaxed shadow-inner overflow-x-auto whitespace-pre-wrap">
                           {thought}
                         </div>
                       </motion.div>

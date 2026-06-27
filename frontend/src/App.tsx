@@ -211,9 +211,10 @@ export default function App() {
       if (metricsRes.ok) setMetrics(await metricsRes.json());
       if (tracesRes.ok) {
         const trs = await tracesRes.json();
-        setTraces(trs);
-        if (trs.length > 0 && !selectedTraceId) {
-          setSelectedTraceId(trs[0].id);
+        setTraces(Array.isArray(trs) ? trs : (trs.traces || []));
+        const traceList = Array.isArray(trs) ? trs : (trs.traces || []);
+        if (traceList.length > 0 && !selectedTraceId) {
+          setSelectedTraceId(traceList[0].trace_id || traceList[0].id);
         }
       }
     } catch (e) {
@@ -239,8 +240,11 @@ export default function App() {
   const fetchTraceSpans = useCallback(async () => {
     if (!selectedTraceId) return;
     try {
-      const res = await fetch(`${API_BASE}/traces/${selectedTraceId}/spans`);
-      if (res.ok) setSelectedTraceSpans(await res.json());
+      const res = await fetch(`${API_BASE}/observability/traces/${selectedTraceId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSelectedTraceSpans(data.spans || []);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -267,6 +271,7 @@ export default function App() {
 
     ws.onmessage = (event) => {
       const evt = JSON.parse(event.data);
+      console.log('[WebSocket] received event:', evt);
 
       // Update thought stream log
       setAgentFeed((prev) => [
