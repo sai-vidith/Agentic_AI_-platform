@@ -1,8 +1,14 @@
 import httpx
-from selectolax.parser import HTMLParser
 from typing import Dict, Any
 from app.tools.base_tool import BaseTool, ToolResult
 from app.config import settings
+
+try:
+    from selectolax.parser import HTMLParser
+    SELECTOLAX_AVAILABLE = True
+except ImportError:
+    SELECTOLAX_AVAILABLE = False
+
 
 class ScraperTool(BaseTool):
     """Scraper tool using Selectolax for HTML parsing or Firecrawl API."""
@@ -43,31 +49,40 @@ class ScraperTool(BaseTool):
                         latency_ms=int(response.elapsed.total_seconds() * 1000)
                     )
 
-        # 2. Selectolax Fast Parsing Path
+        # 2. Direct HTTP + HTML Parsing Path
         async with httpx.AsyncClient(follow_redirects=True) as client:
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
             response = await client.get(url, headers=headers, timeout=10.0)
             if response.status_code == 200:
                 html = response.text
-                parser = HTMLParser(html)
-                
-                # Extract text
-                for tag in parser.css('script, style, nav, footer, header'):
-                    for el in tag:
-                        el.decompose()
-                
-                body_text = parser.body.text(separator='\n') if parser.body else ""
-                clean_text = "\n".join([line.strip() for line in body_text.splitlines() if line.strip()])
-                title = parser.css_first('title')
-                title_text = title.text() if title else ""
-                
+
+                if SELECTOLAX_AVAILABLE:
+                    # Selectolax fast parsing
+                    parser = HTMLParser(html)
+                    for tag in parser.css('script, style, nav, footer, header'):
+                        for el in tag:
+                            el.decompose()
+                    body_text = parser.body.text(separator='\n') if parser.body else ""
+                    clean_text = "\n".join([line.strip() for line in body_text.splitlines() if line.strip()])
+                    title_el = parser.css_first('title')
+                    title_text = title_el.text() if title_el else ""
+                else:
+                    # Basic fallback: strip HTML tags with regex
+                    import re
+                    clean_text = re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.DOTALL | re.IGNORECASE)
+                    clean_text = re.sub(r'<style[^>]*>.*?</style>', '', clean_text, flags=re.DOTALL | re.IGNORECASE)
+                    clean_text = re.sub(r'<[^>]+>', ' ', clean_text)
+                    clean_text = "\n".join([line.strip() for line in clean_text.splitlines() if line.strip()])
+                    title_match = re.search(r'<title[^>]*>(.*?)</title>', html, re.IGNORECASE | re.DOTALL)
+                    title_text = title_match.group(1).strip() if title_match else ""
+
                 return ToolResult(
                     data={
                         "url": url,
-                        "text": clean_text[:4000],  # Truncate to limit tokens
+                        "text": clean_text[:4000],
                         "title": title_text
                     },
-                    source="scraper_selectolax",
+                    source="scraper_selectolax" if SELECTOLAX_AVAILABLE else "scraper_regex",
                     latency_ms=int(response.elapsed.total_seconds() * 1000)
                 )
             else:

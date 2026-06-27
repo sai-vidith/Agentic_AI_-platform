@@ -200,10 +200,10 @@ export default function App() {
   const fetchData = async () => {
     try {
       const [leadsRes, approvalsRes, metricsRes, tracesRes] = await Promise.all([
-        fetch(`${API_BASE}/leads`),
-        fetch(`${API_BASE}/approvals`),
-        fetch(`${API_BASE}/metrics`),
-        fetch(`${API_BASE}/traces`)
+        fetch(`${API_BASE}/workflows/leads`),
+        fetch(`${API_BASE}/approvals/queue`),
+        fetch(`${API_BASE}/observability/metrics`),
+        fetch(`${API_BASE}/observability/traces`)
       ]);
 
       if (leadsRes.ok) setLeads(await leadsRes.ok ? await leadsRes.json() : []);
@@ -355,7 +355,7 @@ export default function App() {
   // Delete lead
   const handleDeleteLead = async (leadId: string) => {
     try {
-      const res = await fetch(`${API_BASE}/leads/${leadId}`, {
+      const res = await fetch(`${API_BASE}/workflows/leads/${leadId}`, {
         method: 'DELETE'
       });
       if (res.ok) {

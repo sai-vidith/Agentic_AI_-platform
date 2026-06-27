@@ -205,7 +205,9 @@ export default function DashboardView({
                 <p className="text-[10px] text-slate-600 mt-1 text-center">Type in a target company above and trigger the agentic loop.</p>
               </div>
             ) : (
-              [...approvalQueue, ...leads].slice(0, 5).map((lead, idx) => (
+              Array.from(new Map([...approvalQueue, ...leads].map(item => [item.id, item])).values())
+                .slice(0, 5)
+                .map((lead, idx) => (
                 <div key={lead.id || idx} className="p-3 border border-slate-900 hover:border-slate-800 rounded-xl bg-slate-950/40 flex items-center justify-between transition">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">

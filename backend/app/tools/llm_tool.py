@@ -16,7 +16,7 @@ def is_real_key(key: str, provider: str) -> bool:
         return False
     if provider == "groq" and not key.startswith("gsk_"):
         return False
-    if provider == "gemini" and not key.startswith("AIza"):
+    if provider == "gemini" and not (key.startswith("AIza") or key.startswith("AQ.")):
         return False
     return True
 
@@ -53,9 +53,8 @@ class LLMService:
             model_list.append({
                 "model_name": "nexus-fast",
                 "litellm_params": {
-                    "model": "openai/llama3.3-70b",
+                    "model": "cerebras/llama-3.3-70b",
                     "api_key": settings.CEREBRAS_API_KEY,
-                    "api_base": "https://api.cerebras.ai/v1"
                 }
             })
             
