@@ -105,10 +105,17 @@ class BaseNexusAgent(ABC):
                 
             if "TOOL:" in content:
                 try:
-                    tool_call_str = content.split("TOOL:")[1].split("\n")[0].strip()
-                    tool_name = tool_call_str.split("(")[0]
-                    args_str = tool_call_str[len(tool_name)+1:-1]
-                    args = json.loads(args_str) if args_str else {}
+                    tool_part = content.split("TOOL:")[1].strip()
+                    tool_name = tool_part.split("(")[0].strip()
+                    
+                    # Robustly extract JSON arguments by finding braces
+                    first_brace = tool_part.find("{")
+                    last_brace = tool_part.rfind("}")
+                    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                        args_str = tool_part[first_brace:last_brace+1]
+                        args = json.loads(args_str)
+                    else:
+                        args = {}
                     
                     if tool_name in tools:
                         await notify_agent_event(WSEventTypes.AGENT_TOOL_CALL, self.name, data={"tool": tool_name, "args": args})
