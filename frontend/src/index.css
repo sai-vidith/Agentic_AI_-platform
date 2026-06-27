@@ -1,30 +1,29 @@
-/* Design System for NexusAI Dashboard */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
-  --bg-main: #070913;
-  --bg-card: rgba(13, 20, 38, 0.6);
-  --bg-card-hover: rgba(20, 32, 64, 0.85);
-  --border-color: rgba(6, 182, 212, 0.15);
-  --border-glow: rgba(6, 182, 212, 0.4);
+  --bg-main: #03050d;
+  --bg-card: rgba(10, 15, 30, 0.7);
+  --bg-card-hover: rgba(16, 25, 50, 0.85);
+  --border-color: rgba(6, 182, 212, 0.12);
+  --border-color-hover: rgba(6, 182, 212, 0.3);
   
-  /* Primary HSL Colors */
-  --color-primary: #06b6d4;      /* Cyan */
-  --color-secondary: #8b5cf6;    /* Violet */
-  --color-success: #10b981;      /* Emerald Green */
-  --color-warning: #f59e0b;      /* Amber Yellow */
-  --color-danger: #ef4444;       /* Rose Red */
+  --color-primary: #06b6d4;      /* Cyber Cyan */
+  --color-secondary: #8b5cf6;    /* Neon Violet */
+  --color-accent: #f43f5e;       /* Electric Rose */
+  --color-success: #10b981;      /* Emerald */
+  --color-warning: #f59e0b;      /* Gold Amber */
   
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --text-dark: #64748b;
+  --text-main: #f8fafc;
+  --text-muted: #64748b;
+  --text-body: #94a3b8;
   
   --font-sans: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
   
-  --glow-cyan: 0 0 20px rgba(6, 182, 212, 0.25);
-  --glow-emerald: 0 0 15px rgba(16, 185, 129, 0.25);
-  --glow-rose: 0 0 25px rgba(239, 68, 68, 0.35);
-  --glow-amber: 0 0 15px rgba(245, 158, 11, 0.25);
+  --glow-cyan: 0 0 25px rgba(6, 182, 212, 0.2);
+  --glow-purple: 0 0 25px rgba(139, 92, 246, 0.25);
+  --glow-emerald: 0 0 20px rgba(16, 185, 129, 0.15);
+  --glow-rose: 0 0 20px rgba(244, 63, 94, 0.2);
 }
 
 * {
@@ -36,14 +35,14 @@
 body {
   background-color: var(--bg-main);
   background-image: 
-    radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
+    radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 50% 50%, rgba(7, 9, 21, 1) 0%, var(--bg-main) 100%);
   color: var(--text-main);
   font-family: var(--font-sans);
-  overflow-x: hidden;
+  overflow: hidden;
   height: 100vh;
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 14px;
 }
 
 #root {
@@ -52,79 +51,100 @@ body {
   flex-direction: column;
 }
 
-/* Glassmorphism Classes */
-.glass {
+/* Premium Glassmorphism */
+.glass-panel {
   background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.glass-hover:hover {
+.glass-panel-hover:hover {
   background: var(--bg-card-hover);
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: var(--glow-cyan);
-  transition: all 0.3s ease;
+  border-color: var(--border-color-hover);
+  box-shadow: var(--glow-cyan), 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
 }
 
-/* Custom Scrollbars */
+/* Custom High-Tech Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(3, 5, 13, 0.5);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(6, 182, 212, 0.3);
-  border-radius: 4px;
+  background: rgba(6, 182, 212, 0.15);
+  border-radius: 99px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(6, 182, 212, 0.6);
+  background: rgba(6, 182, 212, 0.4);
 }
 
-/* Pulse Keyframes */
-@keyframes cyber-pulse {
+/* Animations */
+@keyframes pulse-cyan {
   0%, 100% {
-    box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.15);
+    border-color: rgba(6, 182, 212, 0.15);
   }
   50% {
-    box-shadow: 0 0 25px rgba(6, 182, 212, 0.5);
+    box-shadow: 0 0 25px rgba(6, 182, 212, 0.4);
+    border-color: rgba(6, 182, 212, 0.5);
   }
 }
 
-.pulse-cyan {
-  animation: cyber-pulse 2s infinite ease-in-out;
+.glow-active {
+  animation: pulse-cyan 2.5s infinite ease-in-out;
 }
 
-/* React Flow custom overrides */
+/* Cybernetic Dot Matrix Grid Background */
+.cyber-grid {
+  background-size: 24px 24px;
+  background-image: 
+    linear-gradient(to right, rgba(6, 182, 212, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+}
+
+/* Glowing text */
+.text-neon-cyan {
+  text-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+}
+.text-neon-purple {
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
+/* React Flow styles overrides */
 .react-flow__renderer {
-  background: #080c18 !important;
+  background: #040713 !important;
 }
 
 .react-flow__node {
-  border-radius: 10px !important;
+  border-radius: 12px !important;
   font-family: var(--font-sans);
+  transition: all 0.3s ease;
 }
 
 .react-flow__edge-path {
-  stroke-width: 2px !important;
+  stroke-width: 2.5px !important;
 }
 
-/* Utility Animations */
-@keyframes text-glow {
-  0%, 100% {
-    text-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
-  }
-  50% {
-    text-shadow: 0 0 18px rgba(6, 182, 212, 0.7);
-  }
+.react-flow__controls {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 8px !important;
 }
-
-.glow-text {
-  animation: text-glow 3s infinite ease-in-out;
+.react-flow__controls-button {
+  border-bottom: 1px solid var(--border-color) !important;
+  color: var(--text-main) !important;
+  fill: var(--text-main) !important;
+}
+.react-flow__controls-button:hover {
+  background: rgba(6, 182, 212, 0.1) !important;
 }

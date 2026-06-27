@@ -34,32 +34,72 @@ class SearchTool(BaseTool):
         if not query:
             return ToolResult(data={"results": []}, source="search_live")
             
-        if not settings.SERPER_API_KEY or settings.SERPER_API_KEY == "mock_serper_key":
-            return await self._get_fallback_mock_data(query, params, "Serper API key missing")
+        # Try Serper first if available
+        if settings.SERPER_API_KEY and settings.SERPER_API_KEY != "mock_serper_key":
+            try:
+                url = "https://google.serper.dev/search"
+                payload = {"q": query}
+                headers = {
+                    'X-API-KEY': settings.SERPER_API_KEY,
+                    'Content-Type': 'application/json'
+                }
+                
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(url, json=payload, headers=headers, timeout=10.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        organic = data.get("organic", [])
+                        results = []
+                        for item in organic[:5]:
+                            results.append({
+                                "title": item.get("title"),
+                                "snippet": item.get("snippet"),
+                                "link": item.get("link")
+                            })
+                        return ToolResult(data={"results": results}, source="search_live_serper", latency_ms=int(response.elapsed.total_seconds() * 1000))
+            except Exception as e:
+                print(f"Serper search failed, trying DuckDuckGo fallback: {e}")
 
-        url = "https://google.serper.dev/search"
-        payload = {"q": query}
-        headers = {
-            'X-API-KEY': settings.SERPER_API_KEY,
-            'Content-Type': 'application/json'
-        }
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, headers=headers, timeout=10.0)
-            if response.status_code == 200:
-                data = response.json()
-                # Clean and structure results
-                organic = data.get("organic", [])
-                results = []
-                for item in organic[:5]:
-                    results.append({
-                        "title": item.get("title"),
-                        "snippet": item.get("snippet"),
-                        "link": item.get("link")
-                    })
-                return ToolResult(data={"results": results}, source="search_live_serper", latency_ms=int(response.elapsed.total_seconds() * 1000))
-            else:
-                return await self._get_fallback_mock_data(query, params, f"Serper returned status {response.status_code}")
+        # Try DuckDuckGo HTML scraper fallback (completely keyless)
+        import urllib.parse
+        from selectolax.parser import HTMLParser
+        try:
+            ddg_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+            async with httpx.AsyncClient() as client:
+                response = await client.get(ddg_url, headers=headers, timeout=10.0)
+                if response.status_code == 200:
+                    parser = HTMLParser(response.text)
+                    results = []
+                    for link_node in parser.css(".result__body")[:5]:
+                        title_el = link_node.css_first(".result__title a")
+                        snippet_el = link_node.css_first(".result__snippet")
+                        if title_el:
+                            title = title_el.text().strip()
+                            href = title_el.attributes.get("href", "")
+                            if "uddg=" in href:
+                                parsed_href = urllib.parse.urlparse(href)
+                                qs = urllib.parse.parse_qs(parsed_href.query)
+                                href = qs.get("uddg", [href])[0]
+                            elif href.startswith("//"):
+                                href = "https:" + href
+                            
+                            snippet = snippet_el.text().strip() if snippet_el else ""
+                            results.append({
+                                "title": title,
+                                "snippet": snippet,
+                                "link": href
+                            })
+                    if results:
+                        return ToolResult(
+                            data={"results": results},
+                            source="search_duckduckgo_fallback",
+                            latency_ms=int(response.elapsed.total_seconds() * 1000)
+                        )
+        except Exception as e:
+            print(f"DuckDuckGo fallback search failed: {e}")
+
+        return await self._get_fallback_mock_data(query, params, "Both Serper and DuckDuckGo search failed")
 
     async def _get_fallback_mock_data(self, query: str, params: Dict[str, Any], live_error: str) -> ToolResult:
         # Generate some smart generic search results for standard queries

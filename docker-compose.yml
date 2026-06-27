@@ -1,0 +1,48 @@
+# NexusAI Docker Compose — Development Environment
+# Run: docker-compose up --build
+
+version: "3.9"
+
+services:
+  # ─── Backend: FastAPI + Uvicorn ───
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: nexusai-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY:-mock_groq_key}
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY:-mock_cerebras_key}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-mock_gemini_key}
+      - DATABASE_URL=sqlite:///./nexusai.db
+      - ALLOW_MOCK_FALLBACK=true
+      - TEE_ENCRYPTION_KEY=${TEE_ENCRYPTION_KEY:-}
+    volumes:
+      - ./backend/app:/app/app  # Hot reload
+      - backend-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # ─── Frontend: Vite Dev Server ───
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nexusai-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_BASE=http://backend:8000/v2
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  backend-data:

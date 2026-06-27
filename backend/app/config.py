@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     PORT: int = Field(default=8000)
     HOST: str = Field(default="0.0.0.0")
     
+    # Mock fallback control — set to False in production to surface API errors
+    ALLOW_MOCK_FALLBACK: bool = Field(default=True)
+    
     model_config = SettingsConfigDict(
         env_file=os.path.join(BASE_DIR.parent, ".env"),
         env_file_encoding="utf-8",

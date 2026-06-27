@@ -1,7 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
+
+
+def utc_now() -> datetime:
+    """Timezone-aware UTC now (replaces deprecated datetime.utcnow())."""
+    return datetime.now(timezone.utc)
 
 class LeadStatus(str, Enum):
     NEW = "new"
@@ -39,7 +44,7 @@ class TriggerEvent(BaseModel):
     event_type: str
     company: str
     data: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=utc_now)
 
 class ShadowVerdict(BaseModel):
     status: str  # "CONFIRMED" or "DIVERGENCE_WARNING"
@@ -57,8 +62,8 @@ class ProspectSummary(BaseModel):
     shadow_verdict: Optional[ShadowVerdict] = None
     outreach_template: Optional[str] = None
     status: LeadStatus = LeadStatus.NEW
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 class AgentState(str, Enum):
     IDLE = "idle"
@@ -102,6 +107,7 @@ class AgentTask(BaseModel):
 class DAG(BaseModel):
     tasks: Dict[str, AgentTask]
     edges: List[List[str]]  # [["parent", "child"]]
+    plan_reasoning: str = "Default sequential pipeline"
 
 class WorkflowRun(BaseModel):
     id: str

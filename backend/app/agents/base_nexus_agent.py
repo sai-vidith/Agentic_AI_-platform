@@ -4,7 +4,7 @@ import json
 import asyncio
 from app.tools.llm_tool import llm_service
 from app.core.schemas import AgentState, WSEvent, WSEventTypes
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Global callback list to hook in websockets or dashboards
 agent_event_callbacks = []
@@ -18,7 +18,7 @@ async def notify_agent_event(event_type: WSEventTypes, agent_name: str, target: 
         agent=agent_name,
         target=target,
         data=data or {},
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     for cb in agent_event_callbacks:
         try:
@@ -35,7 +35,7 @@ class BaseNexusAgent(ABC):
         self.model = model
 
     async def call_llm(self, prompt: str, system_message: str = "You are a helpful AI assistant.", response_format: Optional[Dict[str, str]] = None) -> str:
-        """Standard async LLM call with LiteLLM router + rate limiting."""
+        """Standard async LLM call with LiteLLM router + rate limiting + token tracking."""
         messages = [
             {"role": "system", "content": system_message},
             {"role": "user", "content": prompt}
@@ -44,11 +44,11 @@ class BaseNexusAgent(ABC):
         # Trigger WS event that agent is thinking
         await notify_agent_event(WSEventTypes.AGENT_THINKING, self.name, data={"status": "thinking"})
         
-        # Streaming reasoning simulation/illusion (if websocket callback is registered, we could stream it)
-        # For simplicity, we get completion and stream it in chunks to the WS if active
+        # Call LLM with agent_name for per-agent metrics tracking
         response = await llm_service.acompletion(
             model=self.model,
             messages=messages,
+            agent_name=self.name,
             response_format=response_format
         )
         

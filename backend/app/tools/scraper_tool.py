@@ -26,7 +26,7 @@ class ScraperTool(BaseTool):
 
         # 1. Firecrawl API Path
         if settings.FIRECRAWL_API_KEY and settings.FIRECRAWL_API_KEY != "mock_firecrawl_key":
-            firecrawl_url = "https://api.firecrawl.dev/v0/scrape"
+            firecrawl_url = "https://api.firecrawl.dev/v2/scrape"
             payload = {"url": url}
             headers = {"Authorization": f"Bearer {settings.FIRECRAWL_API_KEY}", "Content-Type": "application/json"}
             async with httpx.AsyncClient() as client:
@@ -39,7 +39,7 @@ class ScraperTool(BaseTool):
                             "text": data.get("data", {}).get("markdown", "") or data.get("data", {}).get("content", ""),
                             "title": data.get("data", {}).get("metadata", {}).get("title", "")
                         },
-                        source="scraper_firecrawl",
+                        source="scraper_firecrawl_v2",
                         latency_ms=int(response.elapsed.total_seconds() * 1000)
                     )
 
