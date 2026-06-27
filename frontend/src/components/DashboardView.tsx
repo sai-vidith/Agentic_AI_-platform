@@ -78,7 +78,7 @@ export default function DashboardView({
               type="text"
               value={companyInput}
               onChange={(e) => setCompanyInput(e.target.value)}
-              placeholder="e.g. RazorX Fintech"
+              placeholder="e.g. Stripe (or leave blank to auto-discover companies)"
               className="w-full bg-slate-950/80 border border-slate-850 hover:border-slate-700 focus:border-cyan-500/50 text-slate-100 text-sm rounded-xl pl-11 pr-4 py-3 transition duration-200 outline-none placeholder:text-slate-650"
             />
           </div>

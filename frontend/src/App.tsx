@@ -33,9 +33,19 @@ interface Lead {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'workflows' | 'leads' | 'approvals' | 'config' | 'observability'>('dashboard');
-  const [companyInput, setCompanyInput] = useState('RazorX Fintech');
+  const [companyInput, setCompanyInput] = useState('');
   const [domainInput, setDomainInput] = useState('hr_saas');
   const [collapsed, setCollapsed] = useState(false);
+
+  // Floating Notifications State
+  const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'success' | 'warning' | 'info' }[]>([]);
+  const showNotification = useCallback((message: string, type: 'success' | 'warning' | 'info') => {
+    const id = Math.random().toString();
+    setNotifications((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 6000);
+  }, []);
 
   // Core App states
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -304,7 +314,16 @@ export default function App() {
       }
 
       // If workflow finishes entirely
+      if (evt.type === 'workflow_started') {
+        showNotification(`🚀 Initiating pipeline for discovered target: ${evt.target}`, 'info');
+      }
+
+      if (evt.type === 'shadow_divergence') {
+        showNotification(`⚠️ Risk Critic flagged a Divergence Warning for ${evt.target}!`, 'warning');
+      }
+
       if (evt.type === 'workflow_completed') {
+        showNotification(`🎉 Qualified new company lead: ${evt.target}!`, 'success');
         fetchData();
       }
     };
@@ -312,23 +331,27 @@ export default function App() {
     return () => {
       if (wsRef.current) wsRef.current.close();
     };
-  }, [updateNodeStatus]);
+  }, [updateNodeStatus, showNotification]);
 
   // Execute workflow
   const handleTriggerDiscovery = async () => {
     // Clear old runs (only streaming thoughts, keep agent feed)
     setStreamingThoughts({});
-    initializeDAG(companyInput);
+    
+    const isAutoDiscover = !companyInput.trim() || companyInput.toLowerCase() === 'discover' || companyInput.toLowerCase() === 'auto';
+    initializeDAG(isAutoDiscover ? 'Autonomous Search' : companyInput);
     setActiveTab('workflows');
 
     try {
-      const res = await fetch(`${API_BASE}/workflows/run`, {
+      const endpoint = isAutoDiscover ? `${API_BASE}/workflows/discover` : `${API_BASE}/workflows/run`;
+      const body = isAutoDiscover 
+        ? JSON.stringify({ domain: domainInput, limit: 3 })
+        : JSON.stringify({ company_name: companyInput, domain: domainInput });
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_name: companyInput,
-          domain: domainInput
-        })
+        body: body
       });
       if (res.ok) {
         fetchData();
@@ -501,6 +524,29 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Floating Notifications */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm pointer-events-none">
+        {notifications.map((n) => (
+          <motion.div
+            key={n.id}
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className={`p-4 rounded-xl border pointer-events-auto backdrop-blur-md shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-x-0 ${
+              n.type === 'success' 
+                ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-300' 
+                : n.type === 'warning' 
+                ? 'bg-amber-950/90 border-amber-500/40 text-amber-300' 
+                : 'bg-cyan-950/90 border-cyan-500/40 text-cyan-300'
+            }`}
+          >
+            <div className="flex-1 text-xs font-semibold leading-relaxed pr-2">
+              {n.message}
+            </div>
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
 }

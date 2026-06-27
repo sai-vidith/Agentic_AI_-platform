@@ -14,6 +14,9 @@ def is_real_key(key: str, provider: str) -> bool:
     key_lower = key.lower()
     if "your_" in key_lower or "mock" in key_lower or "key_here" in key_lower:
         return False
+    # Exclude known invalid/expired Gemini keys
+    if "aq.ab8rn6lezic" in key_lower or "aizasyasz4ab" in key_lower:
+        return False
     if provider == "groq" and not key.startswith("gsk_"):
         return False
     if provider == "gemini" and not (key.startswith("AIza") or key.startswith("AQ.")):
@@ -31,59 +34,64 @@ class LLMService:
         # Configure model parameters
         model_list = []
         
+        # Clean quotes from environment inputs (Pydantic keeps literal quotes if present in .env)
+        openai_key = (settings.OPENAI_API_KEY or "").strip('"\'')
+        openai_base = (settings.OPENAI_API_BASE or "").strip('"\'')
+        groq_key = (settings.GROQ_API_KEY or "").strip('"\'')
+        gemini_key = (settings.GEMINI_API_KEY or "").strip('"\'')
+
         # GitHub Models (OpenAI Compatible)
-        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.startswith("github_pat"):
+        if openai_key and openai_key.startswith("github_pat"):
             model_list.append({
                 "model_name": "nexus-fast",
                 "litellm_params": {
                     "model": "openai/gpt-4o",
-                    "api_key": settings.OPENAI_API_KEY,
-                    "api_base": settings.OPENAI_API_BASE
+                    "api_key": openai_key,
+                    "api_base": openai_base
+                }
+            })
+            # Add GPT-4o-mini as a fallback for nexus-fast if GPT-4o hits rate limits
+            model_list.append({
+                "model_name": "nexus-fast",
+                "litellm_params": {
+                    "model": "openai/gpt-4o-mini",
+                    "api_key": openai_key,
+                    "api_base": openai_base
                 }
             })
             model_list.append({
                 "model_name": "nexus-shadow",
                 "litellm_params": {
                     "model": "openai/gpt-4o-mini",
-                    "api_key": settings.OPENAI_API_KEY,
-                    "api_base": settings.OPENAI_API_BASE
+                    "api_key": openai_key,
+                    "api_base": openai_base
                 }
             })
         
         # Groq
-        if is_real_key(settings.GROQ_API_KEY, "groq"):
+        if is_real_key(groq_key, "groq"):
             model_list.append({
                 "model_name": "nexus-fast",
                 "litellm_params": {
                     "model": "groq/llama-3.3-70b-versatile",
-                    "api_key": settings.GROQ_API_KEY
+                    "api_key": groq_key
                 }
             })
             model_list.append({
                 "model_name": "nexus-shadow",
                 "litellm_params": {
                     "model": "groq/llama-3.1-8b-instant",
-                    "api_key": settings.GROQ_API_KEY
+                    "api_key": groq_key
                 }
             })
             
-        # Cerebras - DISABLED (model llama-3.3-70b not available on free tier)
-        # if is_real_key(settings.CEREBRAS_API_KEY, "cerebras"):
-        #     model_list.append({
-        #         "model_name": "nexus-fast",
-        #         "litellm_params": {
-        #             "model": "cerebras/llama-3.3-70b",
-        #             "api_key": settings.CEREBRAS_API_KEY,
-        #         }
-        #     })
-            
         # Gemini
-        if is_real_key(settings.GEMINI_API_KEY, "gemini"):
+        if is_real_key(gemini_key, "gemini"):
             model_list.append({
                 "model_name": "nexus-fast",
                 "litellm_params": {
                     "model": "gemini/gemini-2.0-flash",
-                    "api_key": settings.GEMINI_API_KEY
+                    "api_key": gemini_key
                 }
             })
             

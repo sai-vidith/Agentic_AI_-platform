@@ -16,7 +16,9 @@ class ShadowAgent(BaseNexusAgent):
         evidence = task_input.get("evidence_chain", [])
         
         prompt = f"""
-        You are a highly skeptical B2B sales analyst. Your job is to find reasons why this company is NOT a good fit for our software.
+        You are a highly skeptical B2B sales analyst and risk manager. Your job is to:
+        1. Find reasons why this company is NOT a good fit for our software (Size Mismatch, Readiness Risk, Tech Stack Conflict).
+        2. Perform a critical Data Integrity Check: Audit the company description, funding values, and contact profiles for signs of incomplete, inconsistent, or unverified scraper data (e.g., missing websites, placeholder values, or mismatching headquarters).
         
         Company Profile:
         {json.dumps(company_details)}
@@ -24,12 +26,13 @@ class ShadowAgent(BaseNexusAgent):
         ICP Compatibility Score: {icp_score}/100
         Evidence chain: {json.dumps(evidence)}
         
-        Identify the single strongest counterargument. Score your risk confidence (0-100) that this lead will turn out to be disqualified.
+        Identify the single strongest counterargument or data integrity flaw. Score your risk confidence (0-100) that this lead will turn out to be disqualified or has invalid data.
+        
         Respond strictly in JSON format:
         {{
-          "counter_argument": "Reason why the lead might be a bad fit...",
-          "risk_confidence": 65,
-          "flaw_type": "Readiness Risk / Size Mismatch / Tech Stack Conflict"
+          "counter_argument": "Reason why the lead is a bad fit OR why the scraped information is unverified/inconsistent",
+          "risk_confidence": 75,
+          "flaw_type": "Readiness Risk / Size Mismatch / Tech Stack Conflict / Data Integrity Risk"
         }}
         """
         

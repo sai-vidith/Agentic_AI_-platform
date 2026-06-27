@@ -23,7 +23,7 @@ class EnrichmentTool(BaseTool):
         if not company_name:
             return ToolResult(data={}, source="enrichment_live")
 
-        # Query mock database files
+        # Query mock database files first for instant demo responses
         companies_path = DATA_DIR / "companies.json"
         contacts_path = DATA_DIR / "contacts.json"
         
@@ -33,7 +33,6 @@ class EnrichmentTool(BaseTool):
         if companies_path.exists():
             with open(companies_path, "r", encoding="utf-8") as f:
                 companies = json.load(f)
-                # Find matching company
                 for c in companies:
                     if company_name.lower() in c.get("name", "").lower():
                         company_info = c
@@ -57,9 +56,32 @@ class EnrichmentTool(BaseTool):
                 latency_ms=10
             )
             
-        return await self._get_fallback_mock_data(company_name, params, "Company not found in mock database")
+        # Fallback to live web search & scraping for real companies
+        return await self._execute_live_search(company_name, params)
+            
+        # 3. Dynamic generic mockup if everything fails
+        fallback_company = {
+            "name": company_name,
+            "industry": "Software",
+            "employees": 120,
+            "founded": 2021,
+            "hq": "San Francisco, US",
+            "tech_stack": ["React", "Node.js", "Slack", "Google Workspace"],
+            "current_hr_tool": "Excel",
+            "recent_funding": {"round": "Series A", "amount_usd": 12000000, "date": "2026-02-01"},
+            "growth_rate": "30% headcount growth"
+        }
+        return ToolResult(
+            data={
+                "company": fallback_company,
+                "contacts": []
+            },
+            source="enrichment_mock_generic",
+            latency_ms=15,
+            error="Live search returned no data and company not found in mock files"
+        )
 
-    async def _get_fallback_mock_data(self, company_name: str, params: Dict[str, Any], live_error: str) -> ToolResult:
+    async def _execute_live_search(self, company_name: str, params: Dict[str, Any]) -> ToolResult:
         loop = asyncio.get_running_loop()
         
         def _fetch_live():
@@ -116,11 +138,11 @@ class EnrichmentTool(BaseTool):
                         "live_summary": summary[:1000]
                     },
                     "contacts_data": contacts
-                }
+                }, None
             except Exception as e:
-                return None
+                return None, str(e)
                 
-        live_data = await loop.run_in_executor(None, _fetch_live)
+        live_data, live_error = await loop.run_in_executor(None, _fetch_live)
         
         if live_data:
             return ToolResult(
