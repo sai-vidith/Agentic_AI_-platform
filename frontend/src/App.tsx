@@ -248,8 +248,9 @@ export default function App() {
 
   // Hook runs
   useEffect(() => {
+    initializeDAG('');
     fetchData();
-  }, []);
+  }, [initializeDAG]);
 
   useEffect(() => {
     fetchConfigs();
@@ -298,7 +299,7 @@ export default function App() {
       }
 
       // If workflow finishes entirely
-      if (evt.type === 'workflow_finished') {
+      if (evt.type === 'workflow_completed') {
         fetchData();
       }
     };
@@ -310,14 +311,13 @@ export default function App() {
 
   // Execute workflow
   const handleTriggerDiscovery = async () => {
-    // Clear old runs
-    setAgentFeed([]);
+    // Clear old runs (only streaming thoughts, keep agent feed)
     setStreamingThoughts({});
     initializeDAG(companyInput);
     setActiveTab('workflows');
 
     try {
-      const res = await fetch(`${API_BASE}/webhooks/market-trigger`, {
+      const res = await fetch(`${API_BASE}/workflows/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -367,6 +367,10 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleClearLogs = () => {
+    setAgentFeed([]);
   };
 
   // Toggle Chaos Monkey
@@ -423,12 +427,13 @@ export default function App() {
             className="flex-grow flex flex-col overflow-hidden"
           >
             {activeTab === 'dashboard' && (
-              <DashboardView 
+              <DashboardView
                 companyInput={companyInput}
                 setCompanyInput={setCompanyInput}
                 domainInput={domainInput}
                 setDomainInput={setDomainInput}
                 handleTriggerDiscovery={handleTriggerDiscovery}
+                handleClearLogs={handleClearLogs}
                 metrics={metrics}
                 leads={leads}
                 approvalQueue={approvalQueue}
@@ -442,6 +447,8 @@ export default function App() {
                 edges={edges}
                 streamingThoughts={streamingThoughts}
                 companyInput={companyInput}
+                agentFeed={agentFeed}
+                handleClearLogs={handleClearLogs}
               />
             )}
 

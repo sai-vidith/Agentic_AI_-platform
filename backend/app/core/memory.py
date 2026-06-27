@@ -116,3 +116,45 @@ class VectorStoreManager:
 
 # Singleton Vector DB instance
 vector_store = VectorStoreManager()
+
+class SharedMemory:
+    """3-tier memory: scratchpad (per-run), short-term (per-session), long-term (persistent)."""
+    
+    def __init__(self, session_id: str = None):
+        self.session_id = session_id or "default_session"
+        self.scratchpad: Dict[str, Any] = {}
+        self.short_term: Dict[str, Any] = {}
+        self.long_term = vector_store  # uses the singleton VectorStoreManager
+
+    def get_context_for_agent(self, agent_name: str) -> Dict[str, Any]:
+        """Returns structured context relevant to the current run."""
+        return {
+            **self.short_term,
+            **self.scratchpad
+        }
+
+    def update_from_agent(self, data: Dict[str, Any], tier: str = "scratchpad"):
+        """Updates the memory with data from an agent."""
+        if not data:
+            return
+        if tier == "scratchpad":
+            self.scratchpad.update(data)
+        elif tier == "short_term":
+            self.short_term.update(data)
+            
+    def get(self, key: str, default: Any = None) -> Any:
+        if key in self.scratchpad:
+            return self.scratchpad[key]
+        if key in self.short_term:
+            return self.short_term[key]
+        return default
+        
+    def has_been_processed(self, company: str) -> bool:
+        """Check if a company has already been processed in short-term memory."""
+        processed = self.short_term.get("processed_companies", set())
+        return company in processed
+        
+    def mark_processed(self, company: str):
+        if "processed_companies" not in self.short_term:
+            self.short_term["processed_companies"] = set()
+        self.short_term["processed_companies"].add(company)

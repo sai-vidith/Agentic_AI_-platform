@@ -17,6 +17,7 @@ interface DashboardViewProps {
   domainInput: string;
   setDomainInput: (val: string) => void;
   handleTriggerDiscovery: () => void;
+  handleClearLogs: () => void;
   metrics: any;
   leads: any[];
   approvalQueue: any[];
@@ -29,6 +30,7 @@ export default function DashboardView({
   domainInput,
   setDomainInput,
   handleTriggerDiscovery,
+  handleClearLogs,
   metrics,
   leads,
   approvalQueue,
@@ -155,9 +157,17 @@ export default function DashboardView({
               </span>
               Live Thought Stream
             </h3>
-            <span className="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-[9px] font-mono">
-              WS Connected
-            </span>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleClearLogs}
+                className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700 rounded text-[9px] font-mono font-bold transition flex items-center gap-1"
+              >
+                Clear Logs
+              </button>
+              <span className="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-[9px] font-mono">
+                WS Connected
+              </span>
+            </div>
           </div>
           
           <div className="flex-1 bg-slate-950/80 border border-slate-900 rounded-xl p-4 font-mono text-[11px] text-cyan-400 overflow-y-auto leading-relaxed shadow-inner">
