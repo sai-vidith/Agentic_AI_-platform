@@ -80,8 +80,8 @@ export default function App() {
     const initialNodes: Node[] = nodeNames.map((node, index) => ({
       id: node.id,
       position: { x: 40 + index * 160, y: 130 + (index % 2) * 90 },
-      data: { 
-        label: node.label, 
+      data: {
+        label: node.label,
         desc: node.desc,
         status: 'idle',
         output: null
@@ -105,9 +105,9 @@ export default function App() {
     const initialEdges: Edge[] = [];
     for (let i = 0; i < nodeNames.length - 1; i++) {
       initialEdges.push({
-        id: `e-${nodeNames[i].id}-${nodeNames[i+1].id}`,
+        id: `e-${nodeNames[i].id}-${nodeNames[i + 1].id}`,
         source: nodeNames[i].id,
-        target: nodeNames[i+1].id,
+        target: nodeNames[i + 1].id,
         animated: false,
         style: { stroke: 'rgba(6, 182, 212, 0.12)', strokeWidth: 2 },
         markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(6, 182, 212, 0.12)' }
@@ -123,7 +123,7 @@ export default function App() {
     setNodes((prevNodes) =>
       prevNodes.map((node) => {
         if (node.id !== nodeId) return node;
-        
+
         let borderStyle = '1px solid rgba(6, 182, 212, 0.15)';
         let glowStyle = 'none';
         let bgStyle = 'rgba(10, 15, 30, 0.95)';
@@ -180,14 +180,14 @@ export default function App() {
           return {
             ...edge,
             animated: status === 'thinking' || status === 'completed',
-            style: { 
-              ...edge.style, 
+            style: {
+              ...edge.style,
               stroke: status === 'completed' ? '#10b981' : '#06b6d4',
-              strokeWidth: 2 
+              strokeWidth: 2
             },
-            markerEnd: { 
-              type: MarkerType.ArrowClosed, 
-              color: status === 'completed' ? '#10b981' : '#06b6d4' 
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: status === 'completed' ? '#10b981' : '#06b6d4'
             }
           };
         }
@@ -267,7 +267,7 @@ export default function App() {
 
     ws.onmessage = (event) => {
       const evt = JSON.parse(event.data);
-      
+
       // Update thought stream log
       setAgentFeed((prev) => [
         {
@@ -286,7 +286,7 @@ export default function App() {
         else if (evt.type === 'agent_failed') status = 'failed';
         else if (evt.type === 'agent_retrying') status = 'retrying';
         else if (evt.type === 'agent_recovered') status = 'recovered';
-        
+
         updateNodeStatus(evt.agent, status, evt.data?.output);
       }
 
@@ -373,6 +373,10 @@ export default function App() {
     setAgentFeed([]);
   };
 
+  const handleClearThoughts = () => {
+    setStreamingThoughts({});
+  };
+
   // Toggle Chaos Monkey
   const toggleChaosMonkey = async () => {
     try {
@@ -405,7 +409,7 @@ export default function App() {
   return (
     <div className="flex flex-1 overflow-hidden cyber-grid h-screen w-screen bg-[#030712] text-slate-100 font-sans">
       {/* Sidebar Navigation */}
-      <Sidebar 
+      <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         chaosEnabled={chaosEnabled}
@@ -442,18 +446,19 @@ export default function App() {
             )}
 
             {activeTab === 'workflows' && (
-              <GraphView 
+              <GraphView
                 nodes={nodes}
                 edges={edges}
                 streamingThoughts={streamingThoughts}
                 companyInput={companyInput}
                 agentFeed={agentFeed}
                 handleClearLogs={handleClearLogs}
+                handleClearThoughts={handleClearThoughts}
               />
             )}
 
             {activeTab === 'leads' && (
-              <LeadsView 
+              <LeadsView
                 leads={leads}
                 selectedLead={selectedLead}
                 setSelectedLead={setSelectedLead}
@@ -464,14 +469,14 @@ export default function App() {
             )}
 
             {activeTab === 'approvals' && (
-              <ApprovalsView 
+              <ApprovalsView
                 approvalQueue={approvalQueue}
                 handleApproval={handleApproval}
               />
             )}
 
             {activeTab === 'config' && (
-              <ConfigView 
+              <ConfigView
                 icpConfig={icpConfig}
                 personasConfig={personasConfig}
                 domainInput={domainInput}
@@ -480,7 +485,7 @@ export default function App() {
             )}
 
             {activeTab === 'observability' && (
-              <ObservabilityView 
+              <ObservabilityView
                 traces={traces}
                 selectedTraceId={selectedTraceId}
                 setSelectedTraceId={setSelectedTraceId}
