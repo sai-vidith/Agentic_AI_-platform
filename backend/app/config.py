@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     SERPER_API_KEY: str = Field(default="mock_serper_key")
     NEWS_API_KEY: str = Field(default="mock_news_key")
     FIRECRAWL_API_KEY: str = Field(default="mock_firecrawl_key")
+    OPENAI_API_KEY: str = Field(default="")
+    OPENAI_API_BASE: str = Field(default="")
     
     # Security & Governance
     TEE_ENCRYPTION_KEY: str = Field(default="")
@@ -28,7 +30,7 @@ class Settings(BaseSettings):
     HOST: str = Field(default="0.0.0.0")
     
     # Mock fallback control — set to False in production to surface API errors
-    ALLOW_MOCK_FALLBACK: bool = Field(default=True)
+    ALLOW_MOCK_FALLBACK: bool = Field(default=False)
     
     model_config = SettingsConfigDict(
         env_file=os.path.join(BASE_DIR.parent, ".env"),

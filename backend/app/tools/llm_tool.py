@@ -31,6 +31,25 @@ class LLMService:
         # Configure model parameters
         model_list = []
         
+        # GitHub Models (OpenAI Compatible)
+        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.startswith("github_pat"):
+            model_list.append({
+                "model_name": "nexus-fast",
+                "litellm_params": {
+                    "model": "openai/meta/Llama-4-Scout-17B-16E-Instruct",
+                    "api_key": settings.OPENAI_API_KEY,
+                    "api_base": settings.OPENAI_API_BASE
+                }
+            })
+            model_list.append({
+                "model_name": "nexus-shadow",
+                "litellm_params": {
+                    "model": "openai/meta/Llama-4-Scout-17B-16E-Instruct",
+                    "api_key": settings.OPENAI_API_KEY,
+                    "api_base": settings.OPENAI_API_BASE
+                }
+            })
+        
         # Groq
         if is_real_key(settings.GROQ_API_KEY, "groq"):
             model_list.append({
