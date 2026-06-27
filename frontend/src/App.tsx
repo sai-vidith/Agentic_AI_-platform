@@ -94,7 +94,7 @@ export default function App() {
       { id: 'icp_matcher', label: 'ICP Matcher', desc: 'Scores Compatibility' },
       { id: 'shadow_agent', label: 'Shadow Agent', desc: "Devil's Advocate Check" },
       { id: 'persona_finder', label: 'Persona Finder', desc: 'Matches Buyer Personas' },
-      { id: 'contact_enricher', label: 'Contact Enricher', desc: 'PII/TEE Encrypter' },
+      { id: 'contact_enricher', label: 'Contact Enricher', desc: 'PII & Cryptographic Encrypter' },
       { id: 'summary_agent', label: 'Summary Agent', desc: 'Outreach Messaging' },
       { id: 'validator_agent', label: 'Validator Agent', desc: 'Quality Guardrail Check' }
     ];
@@ -420,9 +420,9 @@ export default function App() {
     }
   };
 
-  // Mock Decryption for TEE viewing
+  // Mock Decryption for Vault viewing
   const [decryptedPII, setDecryptedPII] = useState<Record<string, { email: string; phone: string }>>({});
-  const simulateTEEAccess = (leadId: string, rawEmail: string, rawPhone: string, plainEmail: string, plainPhone: string) => {
+  const simulateVaultAccess = (leadId: string, rawEmail: string, rawPhone: string, plainEmail: string, plainPhone: string) => {
     setDecryptedPII(prev => ({
       ...prev,
       [leadId]: {
@@ -519,7 +519,7 @@ export default function App() {
                   : 'text-slate-400 border-transparent hover:text-slate-100 hover:bg-slate-900/50 hover:border-slate-800'
               }`}
             >
-              <FileKey2 className="h-4.5 w-4.5" /> Observability & TEE
+              <FileKey2 className="h-4.5 w-4.5" /> Observability & Governance
             </button>
           </nav>
         </div>
@@ -865,7 +865,7 @@ export default function App() {
                                     <div className="flex items-center gap-2">
                                       <span className="text-slate-500">{c.email}</span>
                                       <button
-                                        onClick={() => simulateTEEAccess(selectedLead.id, c.raw_email, c.raw_phone, c.plain_email, c.plain_phone)}
+                                        onClick={() => simulateVaultAccess(selectedLead.id, c.raw_email, c.raw_phone, c.plain_email, c.plain_phone)}
                                         className="px-2 py-0.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-300 text-[9px] flex items-center gap-1 transition"
                                       >
                                         <Eye className="h-3 w-3" /> DECRYPT
@@ -887,10 +887,10 @@ export default function App() {
                         )}
                       </div>
 
-                      {/* Right: GraphRAG Knowledge Graph visualizer */}
+                      {/* Right: Hybrid Graph-Vector Knowledge Graph visualizer */}
                       <div className="flex flex-col gap-4">
                         <h4 className="text-xs font-bold text-slate-400 font-mono uppercase tracking-wider flex items-center gap-1.5">
-                          <Network className="h-4 w-4 text-violet-400" /> GraphRAG Network Entities
+                          <Network className="h-4 w-4 text-violet-400" /> Knowledge Graph Entities
                         </h4>
                         
                         <div className="p-4 bg-slate-950/70 border border-slate-900 rounded-xl text-xs flex flex-col gap-3 min-h-[140px] justify-center">
@@ -948,7 +948,7 @@ export default function App() {
                       <div className="mt-6 p-4.5 bg-cyan-500/5 border border-cyan-500/15 rounded-xl text-xs font-mono">
                         <div className="flex items-center gap-2.5 text-cyan-400 font-extrabold mb-2 text-[11px]">
                           <ShieldCheck className="h-4.5 w-4.5" />
-                          <span>TEE Cryptographic Audit Attestation Verified</span>
+                          <span>Cryptographic Audit Attestation Verified</span>
                         </div>
                         <div className="text-[10px] text-slate-400 flex flex-col gap-1">
                           <p><strong>Hash:</strong> {selectedLead.attestation.attestation_doc.hash}</p>
@@ -1067,7 +1067,7 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB 6: OBSERVABILITY & TEE GOVERNANCE */}
+          {/* TAB 6: OBSERVABILITY & GOVERNANCE */}
           {activeTab === 'observability' && (
             <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
               
@@ -1111,7 +1111,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* Spans Tracer & TEE */}
+              {/* Spans Tracer & Cryptographic Audit */}
               <div className="grid grid-cols-12 gap-4">
                 {/* Traces List */}
                 <div className="col-span-4 glass-panel border border-cyan-500/10 p-5 flex flex-col h-[400px]">
