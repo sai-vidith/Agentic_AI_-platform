@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
 from app.api.workflows import router as workflows_router
 from app.api.approvals import router as approvals_router
 from app.api.websocket import router as ws_router
@@ -23,13 +24,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Failed to start scheduler: {e}")
     
-    yield  # App is running
-    
-    print("NexusAI platform shutting down...")
     try:
-        shutdown_scheduler()
-    except Exception as e:
-        print(f"Failed to stop scheduler: {e}")
+        yield  # App is running
+    except asyncio.CancelledError:
+        pass
+    finally:
+        print("NexusAI platform shutting down...")
+        try:
+            shutdown_scheduler()
+        except Exception as e:
+            print(f"Failed to stop scheduler: {e}")
 
 
 app = FastAPI(

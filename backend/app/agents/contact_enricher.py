@@ -3,6 +3,8 @@ from app.agents.base_nexus_agent import BaseNexusAgent, notify_agent_event
 from app.core.schemas import WSEventTypes
 from app.governance.pii_redactor import pii_redactor
 from app.governance.tee_layer import TEEVault
+from app.tools.search_linkedin import search_linkedin
+import json
 
 class ContactEnricherAgent(BaseNexusAgent):
     """Enriches contact details and applies secure TEE and PII governance checks."""
@@ -15,8 +17,21 @@ class ContactEnricherAgent(BaseNexusAgent):
         company_name = task_input.get("company_name", "")
         contacts = task_input.get("contacts", [])
         
+        prompt = f"Find the email and phone number for these contacts at {company_name}: {json.dumps(contacts)}. Format the final answer as a JSON list of contacts."
+        tools = {"search_linkedin": search_linkedin}
+        
+        # ReAct loop!
+        result_str = await self.run_react_loop(prompt, tools=tools)
+        
+        try:
+            enriched = json.loads(result_str)
+            if isinstance(enriched, dict) and "contacts" in enriched:
+                enriched = enriched["contacts"]
+        except Exception:
+            enriched = contacts
+            
         governed_contacts = []
-        for c in contacts:
+        for c in enriched:
             email = c.get("email", "")
             phone = c.get("phone", "")
             

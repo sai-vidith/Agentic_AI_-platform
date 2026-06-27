@@ -201,7 +201,8 @@ class LLMService:
         return MockResponse(text, prompt_text)
 
     async def _get_mock_response_text(self, messages: List[Dict[str, str]]) -> str:
-        prompt = messages[-1]["content"].lower() if messages else ""
+        system_msg = messages[0].get("content", "") if messages else ""
+        prompt = messages[-1].get("content", "").lower() if messages else ""
         
         # 0. Planner Agent Request — dynamic plan generation
         if "orchestration planner" in prompt or "available agents" in prompt:
@@ -214,6 +215,16 @@ class LLMService:
                 "reasoning": "Full pipeline activated for unknown company. All agents needed for comprehensive lead qualification.",
                 "skip_reasons": {}
             })
+            
+        # ReAct Loop support
+        if "To use a tool, reply EXACTLY with:" in system_msg:
+            has_tool_result = any("TOOL_RESULT:" in m.get("content", "") for m in messages)
+            if not has_tool_result:
+                # First iteration: call tool
+                return 'TOOL: search_linkedin({"name": "Priya Sharma", "company": "RazorX Fintech"})'
+            else:
+                # Second iteration: return final answer
+                return 'FINAL_ANSWER: [{"name": "Priya Sharma", "title": "Head of People Operations", "linkedin": "linkedin.com/in/priyasharma", "email": "priya.sharma@razorx.com", "phone": "+1-555-0199", "joined_date": "2023-01-15"}]'
         
         # 1. Shadow Agent Request
         if "shadow_agent" in prompt or "skeptical analyst" in prompt:
