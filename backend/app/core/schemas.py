@@ -88,6 +88,8 @@ class WSEventTypes(str, Enum):
     DAG_HANDOFF = "dag_handoff"
     APPROVAL_REQUIRED = "approval_required"
     WORKFLOW_COMPLETED = "workflow_completed"
+    LEAD_CONTACTS_UPDATED = "lead_contacts_updated"
+    LEAD_SCANNED_NO_CHANGE = "lead_scanned_no_change"
 
 class WSEvent(BaseModel):
     type: WSEventTypes

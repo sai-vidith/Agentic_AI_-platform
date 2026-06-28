@@ -56,7 +56,7 @@ class EmailNotifier:
                 msg["From"] = f"NexusAI <{settings.SMTP_USER}>"
                 msg["To"] = settings.NOTIFY_EMAIL or settings.SMTP_USER
                 
-                part = MIMEText(html_content, "html")
+                part = MIMEText(html_content, "html", "utf-8")
                 msg.attach(part)
                 
                 # Connect to SMTP server using TLS
