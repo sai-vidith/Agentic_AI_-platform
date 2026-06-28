@@ -59,10 +59,10 @@ export default function LeadsView({
             qualifiedLeads.map((lead) => {
               const isSelected = selectedLead?.id === lead.id;
               return (
-                <button
+                <div
                   key={lead.id}
                   onClick={() => setSelectedLead(lead)}
-                  className={`w-full text-left p-4.5 border rounded-2xl transition-all relative flex flex-col gap-2.5 ${
+                  className={`w-full text-left p-4.5 border rounded-2xl transition-all relative flex flex-col gap-2.5 cursor-pointer ${
                     isSelected 
                       ? 'border-cyan-500/30 bg-cyan-500/5 shadow-[0_0_15px_rgba(6,182,212,0.05)]' 
                       : 'border-slate-900 bg-slate-950/40 hover:border-slate-800'
@@ -93,14 +93,14 @@ export default function LeadsView({
                       {lead.company_details.description}
                     </p>
                   )}
-
+ 
                   <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 border-t border-slate-900/60 pt-2 mt-1">
                     <span>SECTOR: {lead.company_details?.industry || 'N/A'}</span>
                     <span className="flex items-center gap-1 text-slate-400 font-bold group-hover:text-cyan-400">
                       EXPLORE <ChevronRight className="h-3 w-3" />
                     </span>
                   </div>
-                </button>
+                </div>
               );
             })
           )}

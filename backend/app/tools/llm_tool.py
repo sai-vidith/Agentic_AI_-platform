@@ -78,6 +78,13 @@ class LLMService:
                 }
             })
             model_list.append({
+                "model_name": "nexus-fast",
+                "litellm_params": {
+                    "model": "groq/llama-3.1-8b-instant",
+                    "api_key": groq_key
+                }
+            })
+            model_list.append({
                 "model_name": "nexus-shadow",
                 "litellm_params": {
                     "model": "groq/llama-3.1-8b-instant",

@@ -185,7 +185,47 @@ class DAGExecutor:
                 }
             })
             
-            # We skip email notifications and workflow_completed WS event, returning silently
+            # Send Email and WS updates
+            if new_contacts_added:
+                try:
+                    from app.observability.notifier import notifier
+                    subject = f"👥 [NexusAI] New Contacts Discovered for {company_name}"
+                    contacts_list_html = "".join([
+                        f"<li><strong>{c.get('name')}</strong> - {c.get('title') or 'Executive'}</li>"
+                        for c in new_contacts_added
+                    ])
+                    html_body = f"""
+                    <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #fafafa;">
+                        <h2 style="color: #06b6d4; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">👥 New Decision Makers Identified</h2>
+                        <p style="font-size: 14px; color: #334155; line-height: 1.5; font-family: system-ui, -apple-system, sans-serif;">
+                            While scanning <strong>{company_name}</strong>, our research agents identified the following new decision maker profiles:
+                        </p>
+                        <ul style="font-size: 13px; color: #334155; line-height: 1.6;">
+                            {contacts_list_html}
+                        </ul>
+                        <div style="margin: 20px 0; text-align: center;">
+                            <a href="http://localhost:3000/leads" style="display: inline-block; padding: 10px 20px; background-color: #06b6d4; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">View Lead Details</a>
+                        </div>
+                    </div>
+                    """
+                    notifier.send_notification(subject, html_body)
+                except Exception as e:
+                    print(f"[Notifier] New contacts alert send failed: {e}")
+                    
+                await notify_agent_event(
+                    "lead_contacts_updated", 
+                    "system", 
+                    target=company_name, 
+                    data={"new_contacts_count": len(new_contacts_added), "total_contacts": len(existing_contacts)}
+                )
+            else:
+                await notify_agent_event(
+                    "lead_scanned_no_change", 
+                    "system", 
+                    target=company_name, 
+                    data={"message": f"Company {company_name} scanned silently. No new contacts found."}
+                )
+                
             return existing_lead
 
         lead_summary = {

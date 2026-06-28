@@ -100,6 +100,21 @@ class EventStore:
     # Leads CRUD
     def save_lead(self, lead_data: Dict[str, Any]):
         lead_id = lead_data["id"]
+        
+        # Normalize outreach_template to be a string
+        template = lead_data.get("outreach_template", "")
+        if isinstance(template, dict):
+            if "Subject" in template and "Body" in template:
+                normalized_template = f"Subject: {template['Subject']}\n\n{template['Body']}"
+            elif "subject" in template and "body" in template:
+                normalized_template = f"Subject: {template['subject']}\n\n{template['body']}"
+            else:
+                normalized_template = json.dumps(template)
+        else:
+            normalized_template = str(template)
+            
+        lead_data["outreach_template"] = normalized_template
+
         if self.use_fallback:
             self.fallback_data["leads"][lead_id] = lead_data
             self._save_fallback_db()
@@ -116,7 +131,7 @@ class EventStore:
             lead.icp_score = lead_data.get("icp_score", 0)
             lead.status = lead_data.get("status", "new")
             lead.evidence_chain = json.dumps(lead_data.get("evidence_chain", []))
-            lead.outreach_template = lead_data.get("outreach_template", "")
+            lead.outreach_template = normalized_template
             lead.shadow_verdict = json.dumps(lead_data.get("shadow_verdict", {}))
             lead.contacts = json.dumps(lead_data.get("contacts", []))
             lead.company_details = json.dumps(lead_data.get("company_details", {}))

@@ -326,6 +326,16 @@ export default function App() {
         showNotification(`🎉 Qualified new company lead: ${evt.target}!`, 'success');
         fetchData();
       }
+
+      if (evt.type === 'lead_contacts_updated') {
+        showNotification(`👥 Discovered ${evt.data?.new_contacts_count} new decision makers for ${evt.target}!`, 'success');
+        fetchData();
+      }
+
+      if (evt.type === 'lead_scanned_no_change') {
+        showNotification(`🔍 ${evt.target} was scanned silently. No new decision makers found.`, 'info');
+        fetchData();
+      }
     };
 
     return () => {
