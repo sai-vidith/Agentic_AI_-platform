@@ -69,11 +69,11 @@ export default function ApprovalsView({
                   </div>
 
                   <p className="text-[10.5px] text-slate-450 line-clamp-2 leading-relaxed">
-                    ⚠️ {lead.shadow_verdict?.reasoning || 'Shadow Agent warning of fit divergence.'}
+                    ⚠️ {lead.shadow_verdict?.reason || lead.shadow_verdict?.reasoning || 'Shadow Agent warning of fit divergence.'}
                   </p>
 
                   <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 border-t border-slate-900/60 pt-2 mt-1">
-                    <span>RISK CONFIDENCE: {lead.shadow_verdict?.risk_score || '75'}%</span>
+                    <span>RISK CONFIDENCE: {lead.shadow_verdict?.confidence ?? lead.shadow_verdict?.risk_score ?? '75'}%</span>
                     <span className="text-amber-400 font-bold">REVIEW DETAILS →</span>
                   </div>
                 </button>
@@ -105,15 +105,49 @@ export default function ApprovalsView({
               </div>
 
               {/* Shadow agent reasoning */}
-              <div className="p-4 rounded-xl border border-amber-500/15 bg-amber-500/5 text-xs text-amber-350 leading-relaxed font-mono flex flex-col gap-2">
+              <div className="p-4 rounded-xl border border-amber-500/15 bg-amber-500/5 text-xs text-amber-350 leading-relaxed font-mono flex flex-col gap-2.5">
                 <div className="font-extrabold flex items-center gap-1.5 text-[10.5px]">
                   <span>SHADOW VERDICT RATIONALE</span>
                 </div>
-                <p>"{selectedApproval.shadow_verdict?.reasoning || 'Lead deviates from target buyer persona guidelines.'}"</p>
+                <p className="font-bold">"{selectedApproval.shadow_verdict?.reason || selectedApproval.shadow_verdict?.reasoning || 'Lead deviates from target buyer persona guidelines.'}"</p>
+                
+                {selectedApproval.shadow_verdict?.reasons && selectedApproval.shadow_verdict.reasons.length > 0 && (
+                  <div className="mt-2 flex flex-col gap-1.5 border-t border-amber-500/15 pt-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-450">Risk Analysis & Strategy Pivot:</span>
+                    <ul className="list-disc pl-4 flex flex-col gap-1 text-[10.5px] text-amber-200/90 leading-relaxed">
+                      {selectedApproval.shadow_verdict.reasons.map((r: string, idx: number) => (
+                        <li key={idx}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
                 <div className="text-[9.5px] text-slate-500 mt-1.5 border-t border-amber-500/10 pt-1.5">
-                  ICP Score: {selectedApproval.icp_score}/100 · Risk Factor: {selectedApproval.shadow_verdict?.risk_score || '75'}%
+                  ICP Score: {selectedApproval.icp_score}/100 · Risk Factor: {selectedApproval.shadow_verdict?.confidence ?? selectedApproval.shadow_verdict?.risk_score ?? '75'}%
                 </div>
               </div>
+
+              {/* Verification Sources */}
+              {selectedApproval.sources && selectedApproval.sources.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider">
+                    Verification Sources (Click to Open)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedApproval.sources.map((src: any, idx: number) => (
+                      <a
+                        key={idx}
+                        href={src.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 hover:border-cyan-500/35 hover:bg-slate-850 text-cyan-400 hover:text-cyan-300 text-[10.5px] font-mono transition flex items-center gap-1.5"
+                      >
+                        🔗 {src.title}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Outreach Template Editor */}
               <div className="flex flex-col gap-2">

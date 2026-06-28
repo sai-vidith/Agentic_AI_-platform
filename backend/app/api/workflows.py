@@ -109,3 +109,17 @@ async def get_lead_details(lead_id: str):
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     return lead
+
+class DecryptRequest(BaseModel):
+    cipher_text: str
+
+@router.post("/decrypt")
+async def decrypt_data(request: DecryptRequest):
+    from app.governance.tee_layer import tee_vault
+    if not request.cipher_text:
+        return {"decrypted": ""}
+    try:
+        decrypted = tee_vault.decrypt(request.cipher_text)
+        return {"decrypted": decrypted}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -36,6 +36,8 @@ class EnrichmentTool(BaseTool):
                 for c in companies:
                     if company_name.lower() in c.get("name", "").lower():
                         company_info = c
+                        if "linkedin" not in company_info:
+                            company_info["linkedin"] = f"https://www.linkedin.com/company/{company_info.get('name', '').lower().replace(' ', '')}"
                         break
                         
         if contacts_path.exists():
@@ -69,7 +71,8 @@ class EnrichmentTool(BaseTool):
             "tech_stack": ["React", "Node.js", "Slack", "Google Workspace"],
             "current_hr_tool": "Excel",
             "recent_funding": {"round": "Series A", "amount_usd": 12000000, "date": "2026-02-01"},
-            "growth_rate": "30% headcount growth"
+            "growth_rate": "30% headcount growth",
+            "linkedin": f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
         }
         return ToolResult(
             data={
@@ -135,7 +138,8 @@ class EnrichmentTool(BaseTool):
                         "current_hr_tool": "Workday",
                         "recent_funding": {"round": "Series D", "amount_usd": 150000000, "date": "2024-01-01"},
                         "growth_rate": "High (Hypergrowth)",
-                        "live_summary": summary[:1000]
+                        "live_summary": summary[:1000],
+                        "linkedin": f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
                     },
                     "contacts_data": contacts
                 }, None
@@ -164,7 +168,8 @@ class EnrichmentTool(BaseTool):
             "tech_stack": ["React", "Node.js", "Slack", "Google Workspace"],
             "current_hr_tool": "Excel",
             "recent_funding": {"round": "Series A", "amount_usd": 12000000, "date": "2026-02-01"},
-            "growth_rate": "30% headcount growth"
+            "growth_rate": "30% headcount growth",
+            "linkedin": f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
         }
         return ToolResult(
             data={

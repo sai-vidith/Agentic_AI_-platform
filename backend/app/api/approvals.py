@@ -34,6 +34,13 @@ async def action_lead(
         
     event_store.save_lead(lead)
     
+    # Record learning feedback signal for reinforcement
+    try:
+        from app.core.feedback import feedback_manager
+        feedback_manager.record_feedback(lead, action)
+    except Exception as ex:
+        print(f"[FeedbackManager] Error recording action feedback: {ex}")
+    
     # Log audit event
     event_store.log_event({
         "source": "governance_approvals",

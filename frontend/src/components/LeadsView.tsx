@@ -122,14 +122,24 @@ export default function LeadsView({
               <div className="border-b border-slate-900 pb-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-black text-slate-100">{selectedLead.company_name}</h3>
-                  <a 
-                    href={selectedLead.company_details?.website || '#'} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="p-1.5 rounded-lg border border-slate-850 bg-slate-900/40 hover:bg-slate-900 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-[10px] flex items-center gap-1 transition"
-                  >
-                    WEBSITE <ExternalLink className="h-3 w-3" />
-                  </a>
+                  <div className="flex gap-2">
+                    <a 
+                      href={selectedLead.company_details?.website || '#'} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="p-1.5 rounded-lg border border-slate-850 bg-slate-900/40 hover:bg-slate-900 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-[10px] flex items-center gap-1 transition"
+                    >
+                      WEBSITE <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <a 
+                      href={selectedLead.company_details?.linkedin || `https://www.linkedin.com/company/${selectedLead.company_name.toLowerCase().replace(/[^a-z0-9]/g, '')}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="p-1.5 rounded-lg border border-slate-850 bg-slate-900/40 hover:bg-slate-900 hover:border-slate-700 text-cyan-400 hover:text-cyan-300 text-[10px] flex items-center gap-1 transition"
+                    >
+                      LINKEDIN <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
                   {selectedLead.company_details?.description || 'No description extracted.'}
@@ -148,7 +158,8 @@ export default function LeadsView({
                 <div className="flex flex-col gap-3">
                   {selectedLead.contacts && selectedLead.contacts.length > 0 ? (
                     selectedLead.contacts.map((c: any, ci: number) => {
-                      const decrypted = decryptedPII[selectedLead.id];
+                      const decryptedKey = c.raw_email || c.raw_phone || selectedLead.id;
+                      const decrypted = decryptedPII[decryptedKey];
                       return (
                         <div key={ci} className="p-3 border border-slate-900/60 bg-slate-950 rounded-lg flex items-center justify-between text-xs">
                           <div className="flex flex-col gap-1.5">
@@ -192,6 +203,33 @@ export default function LeadsView({
                   )}
                 </div>
               </div>
+
+              {/* Verification Sources */}
+              {selectedLead.sources && selectedLead.sources.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <h4 className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider flex items-center gap-1.5">
+                    <ExternalLink className="h-4 w-4 text-cyan-400" /> Verification Sources
+                  </h4>
+                  <div className="p-4 border border-slate-900 bg-slate-950/80 rounded-xl flex flex-col gap-2">
+                    <p className="text-[10px] text-slate-500 font-mono mb-1 leading-normal">
+                      Original source documents and profiles gathered by research agents:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedLead.sources.map((src: any, idx: number) => (
+                        <a
+                          key={idx}
+                          href={src.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-850 border border-slate-850 hover:border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-[10.5px] font-mono transition flex items-center gap-1.5"
+                        >
+                          🔗 {src.title}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Hybrid Graph-Vector Entities details */}
               <div className="flex flex-col gap-3">

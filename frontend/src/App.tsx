@@ -424,12 +424,43 @@ export default function App() {
 
   // Decryption Simulator
   const [decryptedPII, setDecryptedPII] = useState<Record<string, { email: string; phone: string }>>({});
-  const simulateVaultAccess = (leadId: string, rawEmail: string, rawPhone: string, plainEmail: string, plainPhone: string) => {
+  const simulateVaultAccess = async (leadId: string, rawEmail: string, rawPhone: string, plainEmail: string, plainPhone: string) => {
+    let email = plainEmail;
+    let phone = plainPhone;
+    
+    try {
+      if (rawEmail) {
+        const res = await fetch(`${API_BASE}/workflows/decrypt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cipher_text: rawEmail })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          email = data.decrypted;
+        }
+      }
+      if (rawPhone) {
+        const res = await fetch(`${API_BASE}/workflows/decrypt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cipher_text: rawPhone })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          phone = data.decrypted;
+        }
+      }
+    } catch (e) {
+      console.error("Decryption failed, falling back:", e);
+    }
+    
+    const key = rawEmail || rawPhone || leadId;
     setDecryptedPII(prev => ({
       ...prev,
-      [leadId]: {
-        email: plainEmail || "priya.sharma@razorx.in",
-        phone: plainPhone || "+91-9876543210"
+      [key]: {
+        email: email || plainEmail || "priya.sharma@razorx.in",
+        phone: phone || plainPhone || "+91-9876543210"
       }
     }));
   };

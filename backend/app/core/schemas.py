@@ -37,6 +37,7 @@ class CompanyDetails(BaseModel):
     current_hr_tool: Optional[str] = None
     recent_funding: Optional[Dict[str, Any]] = None
     growth_rate: Optional[str] = None
+    linkedin: Optional[str] = None
 
 class TriggerEvent(BaseModel):
     id: Optional[str] = None
@@ -49,6 +50,7 @@ class TriggerEvent(BaseModel):
 class ShadowVerdict(BaseModel):
     status: str  # "CONFIRMED" or "DIVERGENCE_WARNING"
     reason: str
+    reasons: List[str] = Field(default_factory=list)
     confidence: int  # 0 to 100
     force_human_review: bool = False
 

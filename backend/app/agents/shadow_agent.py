@@ -16,9 +16,15 @@ class ShadowAgent(BaseNexusAgent):
         evidence = task_input.get("evidence_chain", [])
         
         prompt = f"""
-        You are a highly skeptical B2B sales analyst and risk manager. Your job is to:
-        1. Find reasons why this company is NOT a good fit for our software (Size Mismatch, Readiness Risk, Tech Stack Conflict).
-        2. Perform a critical Data Integrity Check: Audit the company description, funding values, and contact profiles for signs of incomplete, inconsistent, or unverified scraper data (e.g., missing websites, placeholder values, or mismatching headquarters).
+        You are a highly skeptical veteran B2B sales analyst and risk manager with 15+ years of experience dealing with thousands of customers.
+        Your job is to identify multiple potential risks or reasons why this company might NOT be a good fit, or where our outreach strategy might fail, and check data integrity.
+        
+        Veteran Sales Rep Insights:
+        - Analyze hiring signals carefully. If they have posted a job and the position is recently fulfilled:
+          * A novice might think they don't need us anymore.
+          * A veteran knows they now have an urgent need for onboarding, payroll, retention, and performance management for the new hire. If they lack modern HR SaaS, manual setup increases early turnover risk.
+          * A fulfilled job is a positive sign of budget and growth, not a reason to disqualify. However, a pitch focused only on recruiting/ATS will fail; we must pivot to employee management and onboarding SaaS.
+          * Check if there's a risk of outreach timing (they might have temporary breathing room, but their admin burden is peaking).
         
         Company Profile:
         {json.dumps(company_details)}
@@ -26,13 +32,19 @@ class ShadowAgent(BaseNexusAgent):
         ICP Compatibility Score: {icp_score}/100
         Evidence chain: {json.dumps(evidence)}
         
-        Identify the single strongest counterargument or data integrity flaw. Score your risk confidence (0-100) that this lead will turn out to be disqualified or has invalid data.
+        Identify ALL potential risks (Tech Stack Conflict, Readiness Risk, Size Mismatch, Data Integrity, Sales Cycle Timing, or Job Fulfillment Pivot).
+        Score your risk confidence (0-100) that this lead requires human review or customized positioning before outreach.
         
         Respond strictly in JSON format:
         {{
-          "counter_argument": "Reason why the lead is a bad fit OR why the scraped information is unverified/inconsistent",
+          "counter_argument": "A primary summary of the risk or outreach pivot required",
+          "reasons": [
+            "Reason 1: Specific detail about size/stack/timing/fulfillment",
+            "Reason 2: Detail about another risk factor",
+            "Reason 3: Detail about how the fulfilled job affects their SaaS readiness/needs"
+          ],
           "risk_confidence": 75,
-          "flaw_type": "Readiness Risk / Size Mismatch / Tech Stack Conflict / Data Integrity Risk"
+          "flaw_type": "Readiness Risk / Size Mismatch / Tech Stack Conflict / Data Integrity Risk / Timing Pivot"
         }}
         """
         
@@ -40,6 +52,7 @@ class ShadowAgent(BaseNexusAgent):
         data = json.loads(content)
         
         risk_conf = data.get("risk_confidence", 0)
+        reasons_list = data.get("reasons", [data.get("counter_argument", "")]) if data.get("reasons") else [data.get("counter_argument", "")]
         
         # Trigger WS event if high divergence
         status = "CONFIRMED"
@@ -51,12 +64,13 @@ class ShadowAgent(BaseNexusAgent):
                 WSEventTypes.SHADOW_DIVERGENCE, 
                 self.name, 
                 target=company_name, 
-                data={"reason": data.get("counter_argument"), "confidence": risk_conf}
+                data={"reason": data.get("counter_argument"), "reasons": reasons_list, "confidence": risk_conf}
             )
             
         verdict = ShadowVerdict(
             status=status,
             reason=data.get("counter_argument", ""),
+            reasons=reasons_list,
             confidence=risk_conf,
             force_human_review=force_review
         )

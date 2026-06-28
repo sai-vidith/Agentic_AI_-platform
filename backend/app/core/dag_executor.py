@@ -120,6 +120,30 @@ class DAGExecutor:
         if shadow_verdict and shadow_verdict.get("status") == "DIVERGENCE_WARNING":
             status = LeadStatus.APPROVAL_REQUIRED
             
+        # Collect sources
+        sources = []
+        # 1. Company website
+        website = None
+        if isinstance(company_details, dict):
+            website = company_details.get("website")
+        if not website:
+            website = f"https://www.{company_name.lower().replace(' ', '')}.com"
+        sources.append({"title": f"{company_name} Website", "url": website})
+        
+        # 2. LinkedIn contacts
+        for contact in contacts:
+            linkedin = contact.get("linkedin")
+            if linkedin:
+                url = linkedin if linkedin.startswith("http") else f"https://{linkedin}"
+                sources.append({"title": f"{contact.get('name')} (LinkedIn)", "url": url})
+                
+        # 3. News articles
+        articles = final_context.get("articles", [])
+        for article in articles:
+            url = article.get("url")
+            if url:
+                sources.append({"title": f"News: {article.get('title')} ({article.get('source')})", "url": url})
+
         lead_summary = {
             "id": lead_id,
             "company_name": company_name,
@@ -128,6 +152,7 @@ class DAGExecutor:
             "icp_score": icp_score,
             "evidence_chain": evidence_chain,
             "shadow_verdict": shadow_verdict,
+            "sources": sources,
             "outreach_template": outreach_template,
             "status": status.value,
             "plan_reasoning": self.dag.plan_reasoning,

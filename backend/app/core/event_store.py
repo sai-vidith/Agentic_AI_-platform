@@ -27,6 +27,8 @@ if SQLALCHEMY_AVAILABLE:
         outreach_template = Column(Text, default="")
         shadow_verdict = Column(Text, default="{}")
         contacts = Column(Text, default="[]")
+        company_details = Column(Text, default="{}")
+        sources = Column(Text, default="[]")
         created_at = Column(DateTime, default=datetime.utcnow)
         updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -52,6 +54,23 @@ class EventStore:
                 # We use SQLite as the default Database engine
                 self.engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {})
                 Base.metadata.create_all(self.engine)
+                
+                # Dynamically alter table to add columns if they don't exist
+                try:
+                    from sqlalchemy import text
+                    with self.engine.begin() as conn:
+                        try:
+                            conn.execute(text("SELECT company_details FROM leads LIMIT 1"))
+                        except Exception:
+                            conn.execute(text("ALTER TABLE leads ADD COLUMN company_details TEXT DEFAULT '{}'"))
+                        
+                        try:
+                            conn.execute(text("SELECT sources FROM leads LIMIT 1"))
+                        except Exception:
+                            conn.execute(text("ALTER TABLE leads ADD COLUMN sources TEXT DEFAULT '[]'"))
+                except Exception as ex:
+                    print(f"Error altering database tables: {ex}")
+                
                 self.session_factory = sessionmaker(bind=self.engine)
             except Exception as e:
                 print(f"Database connection error: {e}. Falling back to file storage.")
@@ -100,6 +119,8 @@ class EventStore:
             lead.outreach_template = lead_data.get("outreach_template", "")
             lead.shadow_verdict = json.dumps(lead_data.get("shadow_verdict", {}))
             lead.contacts = json.dumps(lead_data.get("contacts", []))
+            lead.company_details = json.dumps(lead_data.get("company_details", {}))
+            lead.sources = json.dumps(lead_data.get("sources", []))
             lead.updated_at = datetime.utcnow()
             session.commit()
 
@@ -131,6 +152,8 @@ class EventStore:
             "outreach_template": lead.outreach_template,
             "shadow_verdict": json.loads(lead.shadow_verdict),
             "contacts": json.loads(lead.contacts),
+            "company_details": json.loads(lead.company_details) if getattr(lead, 'company_details', None) else {},
+            "sources": json.loads(lead.sources) if getattr(lead, 'sources', None) else [],
             "created_at": lead.created_at.isoformat(),
             "updated_at": lead.updated_at.isoformat()
         }

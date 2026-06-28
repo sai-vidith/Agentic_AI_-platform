@@ -264,9 +264,9 @@ class LLMService:
         if "shadow_agent" in prompt or "skeptical analyst" in prompt:
             confidence = random.randint(40, 75)
             if "razorx" in prompt:
-                return '{"counter_argument": "RazorX Fintech is growing fast, but they only have 87 employees and are using Google Sheets. They might not be ready for enterprise-grade tooling, or they could build it themselves.", "risk_confidence": 65, "flaw_type": "readiness_risk"}'
+                return '{"counter_argument": "RazorX Fintech is growing fast, but they only have 87 employees and are using Google Sheets. They might not be ready for enterprise-grade tooling, or they could build it themselves.", "reasons": ["Company size of 87 employees is on the lower-mid end of target profile", "Currently using Google Sheets, indicating potential reluctance to adopt complex HR software", "Hiring list shows a fulfilled key HR role which reduces immediate recruiting-only software urgency, requiring onboarding pivot"], "risk_confidence": 65, "flaw_type": "readiness_risk"}'
             else:
-                return '{"counter_argument": "The company may have raised capital, but their historical hiring rate shows a slow sales-cycle target list. High risk of long conversion delay.", "risk_confidence": 62, "flaw_type": "sales_cycle_risk"}'
+                return '{"counter_argument": "The company may have raised capital, but their historical hiring rate shows a slow sales-cycle target list. High risk of long conversion delay.", "reasons": ["Historical hiring speed indicates long conversion times", "Recent job fulfillment suggests immediate hiring focus has shifted to post-hire onboarding enablement", "Limited technical integrations available on their current website stack"], "risk_confidence": 62, "flaw_type": "sales_cycle_risk"}'
                 
         # 2. ICP Matcher Request
         if "icp score" in prompt or "ideal customer profile" in prompt:

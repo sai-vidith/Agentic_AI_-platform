@@ -65,7 +65,8 @@ class NewsTool(BaseTool):
                         "content": item.get("description") or item.get("content"),
                         "source": item.get("source", {}).get("name"),
                         "company": company or search_query,
-                        "timestamp": item.get("publishedAt")
+                        "timestamp": item.get("publishedAt"),
+                        "url": item.get("url") or f"https://news.google.com/search?q={item.get('title')}"
                     })
                 return ToolResult(data={"articles": articles}, source="news_live_api", latency_ms=int(response.elapsed.total_seconds() * 1000))
             else:
@@ -77,7 +78,12 @@ class NewsTool(BaseTool):
         if feed_path.exists():
             with open(feed_path, "r", encoding="utf-8") as f:
                 articles = json.load(f)
-                matched = [a for a in articles if company_name.lower() in a.get("company", "").lower() or company_name.lower() in a.get("title", "").lower()]
+                matched = []
+                for a in articles:
+                    if company_name.lower() in a.get("company", "").lower() or company_name.lower() in a.get("title", "").lower():
+                        source_domain = "techcrunch.com" if "crunch" in a.get("source", "").lower() else "reuters.com" if "reuters" in a.get("source", "").lower() else "venturebeat.com"
+                        a["url"] = a.get("url") or f"https://{source_domain}"
+                        matched.append(a)
                 if matched:
                     return ToolResult(data={"articles": matched}, source="news_mock_feed", latency_ms=10)
                     
@@ -88,7 +94,8 @@ class NewsTool(BaseTool):
                 "content": f"Insiders report that {company_name} is looking to expand their technological capabilities and hire specialized executives to drive strategic execution in 2026.",
                 "source": "TechDaily",
                 "company": company_name,
-                "timestamp": "2026-06-24T15:30:00Z"
+                "timestamp": "2026-06-24T15:30:00Z",
+                "url": "https://techdaily.com"
             }
         ]
         return ToolResult(data={"articles": fallback}, source="news_mock_generic", latency_ms=20, error=live_error)
