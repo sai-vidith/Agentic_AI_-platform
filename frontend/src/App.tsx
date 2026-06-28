@@ -487,7 +487,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="flex-grow flex flex-col overflow-hidden"
+            className="flex-1 min-h-0 flex flex-col overflow-hidden"
           >
             {activeTab === 'dashboard' && (
               <DashboardView

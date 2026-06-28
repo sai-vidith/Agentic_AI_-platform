@@ -134,6 +134,20 @@ class EventStore:
                 return self._parse_lead_model(lead)
         return None
 
+    def get_lead_by_company(self, company_name: str) -> Optional[Dict[str, Any]]:
+        name_clean = company_name.strip().lower()
+        if self.use_fallback:
+            for lead in self.fallback_data["leads"].values():
+                if lead.get("company_name", "").strip().lower() == name_clean:
+                    return lead
+            return None
+            
+        with self.session_factory() as session:
+            lead = session.query(LeadModel).filter(LeadModel.company_name.ilike(company_name)).first()
+            if lead:
+                return self._parse_lead_model(lead)
+        return None
+
     def get_all_leads(self) -> List[Dict[str, Any]]:
         if self.use_fallback:
             return list(self.fallback_data["leads"].values())

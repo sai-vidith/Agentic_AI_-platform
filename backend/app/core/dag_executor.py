@@ -144,6 +144,50 @@ class DAGExecutor:
             if url:
                 sources.append({"title": f"News: {article.get('title')} ({article.get('source')})", "url": url})
 
+        # Check if the company has already been qualified/processed
+        existing_lead = event_store.get_lead_by_company(company_name)
+        if existing_lead:
+            # Silently merge and search for new contacts
+            existing_contacts = existing_lead.get("contacts", [])
+            existing_names = {c.get("name", "").strip().lower() for c in existing_contacts if c.get("name")}
+            existing_lis = {c.get("linkedin", "").strip().lower() for c in existing_contacts if c.get("linkedin")}
+            
+            new_contacts_added = []
+            for c in contacts:
+                name = c.get("name", "").strip().lower()
+                li = c.get("linkedin", "").strip().lower()
+                if (name and name not in existing_names) and (not li or li not in existing_lis):
+                    existing_contacts.append(c)
+                    new_contacts_added.append(c)
+                    
+            existing_sources = existing_lead.get("sources", [])
+            existing_urls = {s.get("url", "").strip().lower() for s in existing_sources if s.get("url")}
+            for s in sources:
+                url = s.get("url", "").strip().lower()
+                if url and url not in existing_urls:
+                    existing_sources.append(s)
+                    
+            existing_lead["contacts"] = existing_contacts
+            existing_lead["sources"] = existing_sources
+            
+            # Save the updated lead silently
+            event_store.save_lead(existing_lead)
+            
+            # Log silent update event
+            event_store.log_event({
+                "source": "workflow_engine",
+                "event_type": "lead_contacts_updated",
+                "company": company_name,
+                "data": {
+                    "lead_id": existing_lead["id"],
+                    "new_contacts_found": len(new_contacts_added),
+                    "total_contacts": len(existing_contacts)
+                }
+            })
+            
+            # We skip email notifications and workflow_completed WS event, returning silently
+            return existing_lead
+
         lead_summary = {
             "id": lead_id,
             "company_name": company_name,
@@ -198,6 +242,78 @@ class DAGExecutor:
         
         # Save to database
         event_store.save_lead(lead_summary)
+        
+        # Trigger Email Notification (Option 1: Free SMTP or Resend API)
+        if status.value == LeadStatus.APPROVAL_REQUIRED.value:
+            try:
+                from app.observability.notifier import notifier
+                subject = f"⚠️ [NexusAI] Approval Required: New Lead Flagged - {company_name}"
+                html_body = f"""
+                <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #fafafa;">
+                    <h2 style="color: #d97706; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">⚠️ Action Required: Human Approval Needed</h2>
+                    <p style="font-size: 14px; color: #334155; line-height: 1.5; font-family: system-ui, -apple-system, sans-serif;">
+                        The adversarial Shadow Agent has flagged a potential fit divergence or readiness risk for <strong>{company_name}</strong>.
+                    </p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; font-family: monospace;">
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 8px 0; font-weight: bold; color: #475569;">ICP Score:</td>
+                            <td style="padding: 8px 0; color: #0f172a;">{icp_score}/100</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 8px 0; font-weight: bold; color: #475569;">Risk Factor:</td>
+                            <td style="padding: 8px 0; color: #d97706; font-weight: bold;">{shadow_verdict.get('confidence', '75') if shadow_verdict else '75'}%</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 8px 0; font-weight: bold; color: #475569;">Primary Flaw:</td>
+                            <td style="padding: 8px 0; color: #0f172a;">{shadow_verdict.get('reason', 'N/A') if shadow_verdict else 'N/A'}</td>
+                        </tr>
+                    </table>
+                    <div style="margin: 20px 0; text-align: center;">
+                        <a href="http://localhost:5173/approvals" style="display: inline-block; padding: 10px 20px; background-color: #d97706; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">Go to Approvals Dashboard</a>
+                    </div>
+                    <p style="font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 15px; font-family: system-ui, -apple-system, sans-serif;">
+                        This notification was generated automatically by NexusAI Platform Core.
+                    </p>
+                </div>
+                """
+                notifier.send_notification(subject, html_body)
+            except Exception as e:
+                print(f"[Notifier] Approval alert send failed: {e}")
+        elif status.value == LeadStatus.QUALIFIED.value:
+            try:
+                from app.observability.notifier import notifier
+                subject = f"🚀 [NexusAI] New Qualified Lead Discovered: {company_name}"
+                html_body = f"""
+                <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #fafafa;">
+                    <h2 style="color: #10b981; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">🚀 Qualified Lead Discovered</h2>
+                    <p style="font-size: 14px; color: #334155; line-height: 1.5; font-family: system-ui, -apple-system, sans-serif;">
+                        A new B2B prospect matching target ICP guidelines has been successfully qualified for <strong>{company_name}</strong>.
+                    </p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; font-family: monospace;">
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 8px 0; font-weight: bold; color: #475569;">ICP Score:</td>
+                            <td style="padding: 8px 0; color: #10b981; font-weight: bold;">{icp_score}/100</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 8px 0; font-weight: bold; color: #475569;">Industry:</td>
+                            <td style="padding: 8px 0; color: #0f172a;">{company_details.get('industry', 'N/A') if isinstance(company_details, dict) else 'N/A'}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                            <td style="padding: 8px 0; font-weight: bold; color: #475569;">Employees:</td>
+                            <td style="padding: 8px 0; color: #0f172a;">{company_details.get('employees', 'N/A') if isinstance(company_details, dict) else 'N/A'}</td>
+                        </tr>
+                    </table>
+                    <div style="margin: 20px 0; text-align: center;">
+                        <a href="http://localhost:5173/leads" style="display: inline-block; padding: 10px 20px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">View Leads List</a>
+                    </div>
+                    <p style="font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 15px; font-family: system-ui, -apple-system, sans-serif;">
+                        This notification was generated automatically by NexusAI Platform Core.
+                    </p>
+                </div>
+                """
+                notifier.send_notification(subject, html_body)
+            except Exception as e:
+                print(f"[Notifier] Lead discovery notification send failed: {e}")
         
         # Log event
         event_store.log_event({

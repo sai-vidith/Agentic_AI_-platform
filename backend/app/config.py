@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     # Mock fallback control — set to False in production to surface API errors
     ALLOW_MOCK_FALLBACK: bool = Field(default=False)
     
+    # Email notifications settings
+    EMAIL_PROVIDER: str = Field(default="mock")
+    SMTP_HOST: str = Field(default="smtp.gmail.com")
+    SMTP_PORT: int = Field(default=587)
+    SMTP_USER: str = Field(default="")
+    SMTP_PASSWORD: str = Field(default="")
+    NOTIFY_EMAIL: str = Field(default="")
+    RESEND_API_KEY: str = Field(default="")
+    
     model_config = SettingsConfigDict(
         env_file=os.path.join(BASE_DIR.parent, ".env"),
         env_file_encoding="utf-8",

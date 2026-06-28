@@ -38,6 +38,8 @@ class EnrichmentTool(BaseTool):
                         company_info = c
                         if "linkedin" not in company_info:
                             company_info["linkedin"] = f"https://www.linkedin.com/company/{company_info.get('name', '').lower().replace(' ', '')}"
+                        if "website" not in company_info:
+                            company_info["website"] = f"https://www.{company_info.get('name', '').lower().replace(' ', '')}.com"
                         break
                         
         if contacts_path.exists():
@@ -88,17 +90,54 @@ class EnrichmentTool(BaseTool):
         loop = asyncio.get_running_loop()
         
         def _fetch_live():
-            # 1. Try Yahoo Finance for public company data
             try:
-                # We do a quick search for ticker
-                with DDGS() as ddgs:
-                    ticker_search = [r for r in ddgs.text(f"{company_name} stock ticker symbol", max_results=1)]
+                # 1. Search for verified company website URL
+                website = None
+                try:
+                    with DDGS() as ddgs:
+                        web_search = [r for r in ddgs.text(f"{company_name} official website home page", max_results=5)]
+                    
+                    ignored_domains = [
+                        "linkedin.com", "wikipedia.org", "crunchbase.com", "facebook.com", 
+                        "twitter.com", "x.com", "youtube.com", "instagram.com", "glassdoor.com", 
+                        "indeed.com", "github.com", "pitchbook.com", "zoominfo.com", "apollo.io", 
+                        "tracxn.com", "ycombinator.com", "sec.gov", "reddit.com"
+                    ]
+                    for r in web_search:
+                        href = r.get("href", "")
+                        if href and not any(d in href.lower() for d in ignored_domains):
+                            from urllib.parse import urlparse
+                            parsed = urlparse(href)
+                            website = f"{parsed.scheme}://{parsed.netloc}"
+                            break
+                except Exception as wex:
+                    print(f"[EnrichmentTool] Website search error: {wex}")
                 
-                # We'll just grab basic web data
+                if not website:
+                    website = f"https://www.{company_name.lower().replace(' ', '')}.com"
+
+                # 2. Search for verified LinkedIn company page URL
+                linkedin_url = None
+                try:
+                    with DDGS() as ddgs:
+                        li_search = [r for r in ddgs.text(f"{company_name} linkedin company page profile", max_results=5)]
+                    for r in li_search:
+                        href = r.get("href", "")
+                        if href and "linkedin.com/company/" in href:
+                            linkedin_url = href.split("?")[0].rstrip("/")
+                            break
+                except Exception as liex:
+                    print(f"[EnrichmentTool] LinkedIn search error: {liex}")
+                
+                if not linkedin_url:
+                    linkedin_url = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
+
+                # 3. Retrieve general web summary data
                 with DDGS() as ddgs:
                     results = [r for r in ddgs.text(f"{company_name} company overview industry headquarters", max_results=3)]
                 summary = " ".join([r.get("body", "") for r in results])
-                # We'll also grab some real executives!
+                
+                # 4. Search leadership/executives
                 contacts = []
                 try:
                     with DDGS() as ddgs:
@@ -109,7 +148,6 @@ class EnrichmentTool(BaseTool):
                         href = r.get("href", "")
                         body = r.get("body", "")
                         
-                        # Only use results that look like LinkedIn profiles
                         if "linkedin.com/in/" in href:
                             name = raw_title.replace(" - LinkedIn", "").replace(" | LinkedIn", "").strip()
                             if " - " in name:
@@ -139,7 +177,8 @@ class EnrichmentTool(BaseTool):
                         "recent_funding": {"round": "Series D", "amount_usd": 150000000, "date": "2024-01-01"},
                         "growth_rate": "High (Hypergrowth)",
                         "live_summary": summary[:1000],
-                        "linkedin": f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
+                        "website": website,
+                        "linkedin": linkedin_url
                     },
                     "contacts_data": contacts
                 }, None
@@ -158,7 +197,7 @@ class EnrichmentTool(BaseTool):
                 latency_ms=2500
             )
 
-        # Dynamic mockup response if internet fails completely
+        # Fallback dynamic mock if live retrieval fails
         fallback_company = {
             "name": company_name,
             "industry": "Software",
@@ -169,6 +208,7 @@ class EnrichmentTool(BaseTool):
             "current_hr_tool": "Excel",
             "recent_funding": {"round": "Series A", "amount_usd": 12000000, "date": "2026-02-01"},
             "growth_rate": "30% headcount growth",
+            "website": f"https://www.{company_name.lower().replace(' ', '')}.com",
             "linkedin": f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
         }
         return ToolResult(

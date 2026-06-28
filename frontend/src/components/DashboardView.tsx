@@ -51,9 +51,9 @@ export default function DashboardView({
   ];
 
   return (
-    <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-1">
+    <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
       {/* Header bar */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             Market Discovery Panel <Sparkles className="h-5 w-5 text-cyan-400 animate-pulse" />
@@ -68,7 +68,7 @@ export default function DashboardView({
       <motion.div 
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-5 glass-panel border border-slate-900 rounded-2xl flex flex-col md:flex-row gap-4 items-end bg-slate-950/40 relative overflow-hidden"
+        className="p-4 glass-panel border border-slate-900 rounded-2xl flex flex-col md:flex-row gap-4 items-end bg-slate-950/40 relative overflow-hidden shrink-0"
       >
         <div className="flex-1 flex flex-col gap-2">
           <label className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider">Target Company Name</label>
@@ -105,7 +105,7 @@ export default function DashboardView({
       </motion.div>
 
       {/* Model routing status */}
-      <div className="flex items-center gap-6 px-4 py-3 border border-slate-900 rounded-xl bg-slate-950/30 text-xs font-mono text-slate-450 justify-between">
+      <div className="flex items-center gap-6 px-4 py-3 border border-slate-900 rounded-xl bg-slate-950/30 text-xs font-mono text-slate-450 justify-between shrink-0">
         <div className="flex items-center gap-4">
           <span className="text-[10px] font-bold text-slate-550">LLM POOL:</span>
           <div className="flex items-center gap-2">
@@ -127,7 +127,7 @@ export default function DashboardView({
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
         {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
