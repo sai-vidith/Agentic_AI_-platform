@@ -102,21 +102,26 @@ class WorkflowTracer:
         for trace_id, spans in self.traces.items():
             total_duration = sum(s.duration_ms for s in spans)
             failed_count = sum(1 for s in spans if s.status == "failed")
+            
+            # Extract company name from spans metadata
+            company_name = "Event pipeline run"
+            for s in spans:
+                if s.metadata and s.metadata.get("company_name"):
+                    company_name = s.metadata.get("company_name")
+                    break
+                    
             summaries.append({
                 "trace_id": trace_id,
                 "span_count": len(spans),
                 "total_duration_ms": total_duration,
                 "failed_spans": failed_count,
                 "status": "failed" if failed_count > 0 else "completed",
+                "metadata": {"company_name": company_name}
             })
         return {"traces": summaries}
     
     def get_waterfall(self, trace_id: str) -> List[Dict[str, Any]]:
-        """Get spans formatted for waterfall visualization.
-        
-        Returns spans sorted by start time with visual offset data
-        for rendering in the frontend observability dashboard.
-        """
+        """Get spans formatted for waterfall visualization."""
         if trace_id not in self.traces:
             return []
         
@@ -124,13 +129,27 @@ class WorkflowTracer:
         if not spans:
             return []
         
-        # Calculate relative offsets from trace start
         trace_start = spans[0].start_time
         waterfall = []
         for span in spans:
+            try:
+                start_epoch = datetime.fromisoformat(span.start_time.replace('Z', '+00:00')).timestamp()
+            except Exception:
+                start_epoch = datetime.now(timezone.utc).timestamp()
+                
+            try:
+                end_epoch = datetime.fromisoformat(span.end_time.replace('Z', '+00:00')).timestamp() if span.end_time else start_epoch
+            except Exception:
+                end_epoch = start_epoch
+                
             waterfall.append({
-                **span.to_dict(),
+                "id": span.span_id,
+                "name": span.operation or span.agent_name,
+                "start_time": start_epoch,
+                "end_time": end_epoch,
+                "duration_ms": span.duration_ms,
                 "offset_ms": self._time_diff_ms(trace_start, span.start_time),
+                "metadata": {**span.metadata, "state": span.status}
             })
         return waterfall
     

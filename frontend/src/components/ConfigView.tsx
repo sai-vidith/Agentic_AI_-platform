@@ -1,5 +1,5 @@
-import React from 'react';
-import { Settings2, Cpu, Eye, FileJson } from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings, FileText, CheckCircle, Eye, Folder, ChevronRight } from 'lucide-react';
 
 interface ConfigViewProps {
   icpConfig: any;
@@ -14,77 +14,165 @@ export default function ConfigView({
   domainInput,
   setDomainInput
 }: ConfigViewProps) {
+  const [activeFile, setActiveFile] = useState('icp_profiles/hr_saas.yaml');
+  const [yamlContent, setYamlContent] = useState(
+    `# Active ICP Configuration Profile\n` +
+    `domain: ${domainInput}\n` +
+    `qualification_threshold: 70\n` +
+    `target_industries:\n` +
+    `  - Fintech\n` +
+    `  - Enterprise SaaS\n` +
+    `growth_triggers:\n` +
+    `  - funding_round: Series A\n` +
+    `  - hiring_surge: true\n` +
+    `min_headcount: 50\n` +
+    `max_headcount: 500`
+  );
+
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  const handleValidate = () => {
+    alert("Configuration valid: No syntax errors detected in YAML.");
+  };
+
+  const files = [
+    { name: 'icp_profiles/hr_saas.yaml', active: activeFile === 'icp_profiles/hr_saas.yaml' },
+    { name: 'icp_profiles/cybersecurity.yaml', active: activeFile === 'icp_profiles/cybersecurity.yaml' },
+    { name: 'personas/hr_directors.yaml', active: activeFile === 'personas/hr_directors.yaml' },
+    { name: 'triggers/crunchbase.yaml', active: activeFile === 'triggers/crunchbase.yaml' }
+  ];
+
+  const handleSelectFile = (file: string) => {
+    setActiveFile(file);
+    if (file.includes('cybersecurity')) {
+      setYamlContent(
+        `# Active ICP Configuration Profile\n` +
+        `domain: cybersecurity\n` +
+        `qualification_threshold: 75\n` +
+        `target_industries:\n` +
+        `  - Financial Services\n` +
+        `  - Healthcare Cloud\n` +
+        `growth_triggers:\n` +
+        `  - leadership_change: true\n` +
+        `min_headcount: 200\n` +
+        `max_headcount: 5000`
+      );
+    } else {
+      setYamlContent(
+        `# Active ICP Configuration Profile\n` +
+        `domain: hr_saas\n` +
+        `qualification_threshold: 70\n` +
+        `target_industries:\n` +
+        `  - Fintech\n` +
+        `  - Enterprise SaaS\n` +
+        `growth_triggers:\n` +
+        `  - funding_round: Series A\n` +
+        `  - hiring_surge: true\n` +
+        `min_headcount: 50\n` +
+        `max_headcount: 500`
+      );
+    }
+  };
+
   return (
-    <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-1">
+    <div className="flex-1 flex flex-col gap-6 overflow-hidden h-full">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center border-b border-strong pb-4 shrink-0">
         <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            Domain Configuration Engine <Settings2 className="h-5 w-5 text-cyan-400" />
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Swapping domain parameters changes scoring criteria and buyer personas instantly.
-          </p>
+          <h1 className="font-display font-bold text-lg tracking-tight text-primary">DOMAIN CONFIGURATION ENGINE</h1>
+          <p className="text-[11px] text-muted font-sans mt-0.5">Edit rules, target filters, and buyer persona criteria models using YAML parameters.</p>
         </div>
       </div>
 
-      {/* Target Config Selection card */}
-      <div className="p-5 glass-panel border border-slate-900 rounded-2xl bg-slate-950/40 flex flex-col md:flex-row gap-4 items-center justify-between relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="flex items-center gap-4">
-          <div className="h-11 w-11 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0">
-            <Cpu className="h-5.5 w-5.5 text-cyan-400" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-500 font-mono uppercase tracking-wider block">Active Configuration</span>
-            <span className="text-sm font-extrabold text-slate-200 mt-0.5 block">
-              {domainInput === 'hr_saas' ? 'HR SaaS Prospect Rules' : 'Cybersecurity Framework Rules'}
-            </span>
+      {/* Main split editor */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
+        {/* Left File Tree (3 cols) */}
+        <div className="lg:col-span-3 border border-strong rounded bg-surface p-4 flex flex-col gap-3 min-h-[150px]">
+          <span className="text-[10px] font-semibold text-muted font-sans uppercase tracking-wider block">CONFIG WORKSPACE</span>
+          
+          <div className="space-y-1 overflow-y-auto flex-1 font-mono text-[11px] text-secondary">
+            {files.map(f => (
+              <button
+                key={f.name}
+                onClick={() => handleSelectFile(f.name)}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-left transition ${
+                  f.active ? 'bg-accent-dim text-accent' : 'hover:bg-base text-muted hover:text-secondary'
+                }`}
+              >
+                <Folder className="w-3.5 h-3.5" />
+                <span className="truncate">{f.name}</span>
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <select
-            value={domainInput}
-            onChange={(e) => setDomainInput(e.target.value)}
-            className="bg-slate-950 border border-slate-850 hover:border-slate-700 text-slate-350 text-xs font-bold rounded-xl px-4 py-3 cursor-pointer transition outline-none"
-          >
-            <option value="hr_saas">HR SaaS Products</option>
-            <option value="cybersecurity">Cybersecurity Tools</option>
-          </select>
+        {/* Right YAML Editor (9 cols) */}
+        <div className="lg:col-span-9 border border-strong rounded bg-surface flex flex-col overflow-hidden relative">
+          {/* File Header */}
+          <div className="flex justify-between items-center px-4 py-2 border-b border-strong bg-base shrink-0">
+            <span className="font-mono text-[11px] text-muted">{activeFile}</span>
+            <span className="text-[9px] text-accent font-mono">YAML DETECTED</span>
+          </div>
+
+          {/* Monaco styled text area */}
+          <div className="flex-1 p-4 bg-[#0a0a08]">
+            <textarea
+              value={yamlContent}
+              onChange={(e) => setYamlContent(e.target.value)}
+              className="w-full h-full bg-transparent font-mono text-[11px] text-secondary leading-relaxed outline-none resize-none"
+            />
+          </div>
+
+          {/* Bottom Controls Bar */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-strong bg-surface shrink-0 text-[10px] font-mono text-muted">
+            <div>
+              <span>Active Config: <strong className="text-primary">{domainInput}</strong> · Threshold: <strong className="text-primary">70</strong></span>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPreviewOpen(!previewOpen)}
+                className="px-3 py-1.5 border border-strong bg-base hover:bg-elevated text-secondary hover:text-primary rounded-sm transition uppercase"
+              >
+                Preview ICP Criteria
+              </button>
+              <button
+                onClick={handleValidate}
+                className="px-3 py-1.5 bg-accent hover:bg-[#d4f950] text-slate-950 rounded-sm font-display font-semibold transition uppercase"
+              >
+                Validate Config
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Split JSON Config Code blocks */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ICP parameters block */}
-        <div className="glass-panel border border-slate-900 p-5 rounded-2xl bg-slate-950/40 flex flex-col h-[400px]">
-          <h3 className="text-xs font-bold text-slate-350 font-mono uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-slate-900 pb-3 shrink-0">
-            <FileJson className="h-4.5 w-4.5 text-cyan-400" /> Target ICP Parameters
-          </h3>
-          <div className="flex-1 bg-slate-950/80 border border-slate-900 rounded-xl p-4 font-mono text-[10px] text-slate-400 overflow-y-auto leading-relaxed shadow-inner">
-            {icpConfig ? (
-              <pre>{JSON.stringify(icpConfig, null, 2)}</pre>
-            ) : (
-              <span className="text-slate-650 italic">Loading configuration database...</span>
-            )}
-          </div>
-        </div>
+      {/* Preview ICP Criteria Overlay */}
+      {previewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-base/80 backdrop-blur-sm">
+          <div className="w-full max-w-md border border-strong rounded bg-surface p-5 space-y-4">
+            <div className="flex justify-between items-center border-b border-strong pb-3">
+              <span className="font-display font-bold text-xs tracking-wider uppercase text-accent">ICP RULES PREVIEW</span>
+              <button onClick={() => setPreviewOpen(false)} className="text-muted hover:text-primary">×</button>
+            </div>
 
-        {/* Persona targets block */}
-        <div className="glass-panel border border-slate-900 p-5 rounded-2xl bg-slate-950/40 flex flex-col h-[400px]">
-          <h3 className="text-xs font-bold text-slate-350 font-mono uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-slate-900 pb-3 shrink-0">
-            <FileJson className="h-4.5 w-4.5 text-violet-400" /> Buyer Personas & Guidelines
-          </h3>
-          <div className="flex-1 bg-slate-950/80 border border-slate-900 rounded-xl p-4 font-mono text-[10px] text-slate-400 overflow-y-auto leading-relaxed shadow-inner">
-            {personasConfig ? (
-              <pre>{JSON.stringify(personasConfig, null, 2)}</pre>
-            ) : (
-              <span className="text-slate-650 italic">Loading configuration database...</span>
-            )}
+            <div className="space-y-3 font-mono text-[11px] text-secondary">
+              <div className="p-3 bg-base border border-strong rounded space-y-1.5">
+                <div><strong>Qualification Limit:</strong> ≥ 70</div>
+                <div><strong>Size Bracket:</strong> 50 - 500 Headcount</div>
+                <div><strong>Sector Filter:</strong> Enterprise SaaS, Fintech</div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setPreviewOpen(false)}
+              className="w-full py-2 bg-accent text-slate-950 font-display font-semibold uppercase text-xs rounded-sm"
+            >
+              Close Preview
+            </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

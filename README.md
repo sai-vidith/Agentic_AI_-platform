@@ -84,7 +84,7 @@ NexusAI is a **6-layer Agentic AI platform** that autonomously discovers, qualif
 | **LLM Tertiary** | Gemini 2.0 Flash | 15 RPM, 1M tokens/day free |
 | **LLM Router** | LiteLLM | Auto-failover across providers |
 | **Backend** | FastAPI + Uvicorn | Async API, WebSockets, Pydantic v2 |
-| **Frontend** | Next.js 14 (App Router) | SSR, React Server Components |
+| **Frontend** | React SPA (Vite) | Single Page Application, TypeScript |
 | **DAG Visualization** | React Flow + Dagre | Animated agent workflow graph |
 | **Knowledge Graph** | NetworkX | In-memory graph, full algorithm library |
 | **Vector Store** | ChromaDB (embedded) | Semantic search, in-process |
@@ -207,7 +207,7 @@ nexusai/
 │   ├── Dockerfile
 │   ├── package.json
 │   └── src/
-│       ├── app/                         # Next.js pages
+│       ├── App.tsx                      # Main React SPA component
 │       ├── components/                  # React components
 │       ├── hooks/                       # WebSocket hooks
 │       └── lib/                         # API client

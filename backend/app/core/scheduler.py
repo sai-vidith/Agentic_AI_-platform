@@ -45,6 +45,15 @@ def start_scheduler():
         id="autonomous_market_scan_cyber",
         replace_existing=True
     )
+    # Schedule an email digest flusher every 2 minutes
+    from app.observability.notifier import notifier
+    scheduler.add_job(
+        notifier.send_digest,
+        trigger="interval",
+        minutes=2,
+        id="email_digest_flusher",
+        replace_existing=True
+    )
     scheduler.start()
     print("APScheduler engine started autonomous background cron loop.")
 

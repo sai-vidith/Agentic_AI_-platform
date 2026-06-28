@@ -21,9 +21,13 @@ class DAGExecutor:
         self.memory = SharedMemory(session_id=uuid.uuid4().hex)
         self.token_usage = {"total_tokens": 0, "total_cost_usd": 0.0}
         self.trace_spans = []  # Observability trace spans
+        self.trace_id = f"trace_{uuid.uuid4().hex[:12]}"
 
     async def execute(self) -> Dict[str, Any]:
         tasks = self.dag.tasks
+        
+        from app.observability.tracer import workflow_tracer
+        workflow_tracer.start_trace(self.trace_id)
         
         # Simple topological sort: find nodes with zero dependencies, execute them, resolve dependants
         completed = set()
@@ -170,7 +174,20 @@ class DAGExecutor:
             existing_lead["contacts"] = existing_contacts
             existing_lead["sources"] = existing_sources
             
-            # Save the updated lead silently
+            # Update and validate lead metrics & metadata with fresh research context
+            existing_details = existing_lead.get("company_details", {}) or {}
+            if isinstance(existing_details, dict) and isinstance(company_details, dict):
+                for k, v in company_details.items():
+                    if v and v != "Unknown":
+                        existing_details[k] = v
+            existing_lead["company_details"] = existing_details
+            
+            existing_lead["icp_score"] = icp_score
+            existing_lead["evidence_chain"] = evidence_chain
+            existing_lead["shadow_verdict"] = shadow_verdict
+            existing_lead["outreach_template"] = outreach_template
+            
+            # Save the updated lead
             event_store.save_lead(existing_lead)
             
             # Log silent update event
@@ -188,15 +205,16 @@ class DAGExecutor:
             # Send Email and WS updates
             if new_contacts_added:
                 try:
+                    from app.config import settings
                     from app.observability.notifier import notifier
-                    subject = f"👥 [NexusAI] New Contacts Discovered for {company_name}"
+                    subject = f"[NexusAI] New Contacts Discovered for {company_name}"
                     contacts_list_html = "".join([
                         f"<li><strong>{c.get('name')}</strong> - {c.get('title') or 'Executive'}</li>"
                         for c in new_contacts_added
                     ])
                     html_body = f"""
                     <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #fafafa;">
-                        <h2 style="color: #06b6d4; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">👥 New Decision Makers Identified</h2>
+                        <h2 style="color: #06b6d4; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">New Decision Makers Identified</h2>
                         <p style="font-size: 14px; color: #334155; line-height: 1.5; font-family: system-ui, -apple-system, sans-serif;">
                             While scanning <strong>{company_name}</strong>, our research agents identified the following new decision maker profiles:
                         </p>
@@ -204,7 +222,7 @@ class DAGExecutor:
                             {contacts_list_html}
                         </ul>
                         <div style="margin: 20px 0; text-align: center;">
-                            <a href="http://localhost:3000/leads" style="display: inline-block; padding: 10px 20px; background-color: #06b6d4; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">View Lead Details</a>
+                            <a href="{settings.FRONTEND_URL}/leads" style="display: inline-block; padding: 10px 20px; background-color: #06b6d4; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">View Lead Details</a>
                         </div>
                     </div>
                     """
@@ -228,6 +246,54 @@ class DAGExecutor:
                 
             return existing_lead
 
+        # --- Compute Buying Committee Roles & Influence Graph ---
+        buying_committee = []
+        for contact in contacts:
+            title = contact.get("title", "").lower()
+            name = contact.get("name", "Unknown Contact")
+            
+            # Map role based on title heuristics
+            if any(k in title for k in ("chief", "vp", "president", "cpo", "cfo", "cio", "cto", "ceo", "head of")):
+                role = "Decision Maker"
+            elif any(k in title for k in ("director", "manager", "lead", "architect", "engineer")):
+                role = "Influencer"
+            else:
+                role = "Gatekeeper"
+                
+            buying_committee.append({
+                "name": name,
+                "title": contact.get("title", ""),
+                "role": role,
+                "linkedin": contact.get("linkedin", "")
+            })
+            
+        # Target Sequence order: Gatekeeper first (rapport/data) -> Influencer (workflow/advocacy) -> Decision Maker (executive pitch)
+        role_priority = {"Gatekeeper": 1, "Influencer": 2, "Decision Maker": 3}
+        sorted_committee = sorted(buying_committee, key=lambda x: role_priority.get(x["role"], 9))
+        
+        engagement_sequence = []
+        for idx, member in enumerate(sorted_committee, 1):
+            role = member["role"]
+            name = member["name"]
+            title = member["title"]
+            
+            if role == "Gatekeeper":
+                strategy = "Initiate low-friction outreach to establish administrative rapport and confirm tool stack validation details."
+            elif role == "Influencer":
+                strategy = "Pitch technical workflow improvements and automation advantages to gather internal sponsorship."
+            else:
+                strategy = "Present executive-level business case, financial ROI validation, and contract terms."
+                
+            engagement_sequence.append({
+                "step": idx,
+                "name": name,
+                "title": title,
+                "role": role,
+                "strategy": strategy
+            })
+
+        debate_transcript = self.memory.get("debate_transcript", [])
+
         lead_summary = {
             "id": lead_id,
             "company_name": company_name,
@@ -241,23 +307,38 @@ class DAGExecutor:
             "status": status.value,
             "plan_reasoning": self.dag.plan_reasoning,
             "token_usage": self.token_usage,
+            "debate_transcript": debate_transcript,
+            "buying_committee": engagement_sequence,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
         
-        # --- Write lead entity to Knowledge Graph ---
+        # --- Write lead entity & influence links to Knowledge Graph ---
         try:
             kg_manager.add_entity(company_name, "company", {
                 "icp_score": icp_score,
                 "status": status.value,
                 "lead_id": lead_id,
             })
-            # Add contact relationships
-            for contact in contacts:
-                contact_name = contact.get("name", "Unknown Contact")
-                kg_manager.add_entity(contact_name, "person", {
-                    "title": contact.get("title", ""),
+            
+            # Add contact entities with roles
+            for member in buying_committee:
+                kg_manager.add_entity(member["name"], "person", {
+                    "title": member["title"],
+                    "role": member["role"]
                 })
-                kg_manager.add_relation(contact_name, company_name, "WORKS_AT")
+                kg_manager.add_relation(member["name"], company_name, "WORKS_AT")
+                
+            # Build influence hierarchy inside Knowledge Graph
+            gatekeepers = [m for m in buying_committee if m["role"] == "Gatekeeper"]
+            influencers = [m for m in buying_committee if m["role"] == "Influencer"]
+            decision_makers = [m for m in buying_committee if m["role"] == "Decision Maker"]
+            
+            for gk in gatekeepers:
+                for inf in influencers:
+                    kg_manager.add_relation(gk["name"], inf["name"], "INFLUENCES")
+            for inf in influencers:
+                for dm in decision_makers:
+                    kg_manager.add_relation(inf["name"], dm["name"], "INFLUENCES")
             
             # Add company detail relationships
             if isinstance(company_details, dict):
@@ -286,11 +367,12 @@ class DAGExecutor:
         # Trigger Email Notification (Option 1: Free SMTP or Resend API)
         if status.value == LeadStatus.APPROVAL_REQUIRED.value:
             try:
+                from app.config import settings
                 from app.observability.notifier import notifier
-                subject = f"⚠️ [NexusAI] Approval Required: New Lead Flagged - {company_name}"
+                subject = f"[NexusAI] Approval Required: New Lead Flagged - {company_name}"
                 html_body = f"""
                 <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #fafafa;">
-                    <h2 style="color: #d97706; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">⚠️ Action Required: Human Approval Needed</h2>
+                    <h2 style="color: #d97706; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">Action Required: Human Approval Needed</h2>
                     <p style="font-size: 14px; color: #334155; line-height: 1.5; font-family: system-ui, -apple-system, sans-serif;">
                         The adversarial Shadow Agent has flagged a potential fit divergence or readiness risk for <strong>{company_name}</strong>.
                     </p>
@@ -309,7 +391,7 @@ class DAGExecutor:
                         </tr>
                     </table>
                     <div style="margin: 20px 0; text-align: center;">
-                        <a href="http://localhost:5173/approvals" style="display: inline-block; padding: 10px 20px; background-color: #d97706; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">Go to Approvals Dashboard</a>
+                        <a href="{settings.FRONTEND_URL}/approvals" style="display: inline-block; padding: 10px 20px; background-color: #d97706; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">Go to Approvals Dashboard</a>
                     </div>
                     <p style="font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 15px; font-family: system-ui, -apple-system, sans-serif;">
                         This notification was generated automatically by NexusAI Platform Core.
@@ -321,11 +403,12 @@ class DAGExecutor:
                 print(f"[Notifier] Approval alert send failed: {e}")
         elif status.value == LeadStatus.QUALIFIED.value:
             try:
+                from app.config import settings
                 from app.observability.notifier import notifier
-                subject = f"🚀 [NexusAI] New Qualified Lead Discovered: {company_name}"
+                subject = f"[NexusAI] New Qualified Lead Discovered: {company_name}"
                 html_body = f"""
                 <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #fafafa;">
-                    <h2 style="color: #10b981; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">🚀 Qualified Lead Discovered</h2>
+                    <h2 style="color: #10b981; margin-top: 0; font-family: system-ui, -apple-system, sans-serif;">Qualified Lead Discovered</h2>
                     <p style="font-size: 14px; color: #334155; line-height: 1.5; font-family: system-ui, -apple-system, sans-serif;">
                         A new B2B prospect matching target ICP guidelines has been successfully qualified for <strong>{company_name}</strong>.
                     </p>
@@ -344,7 +427,7 @@ class DAGExecutor:
                         </tr>
                     </table>
                     <div style="margin: 20px 0; text-align: center;">
-                        <a href="http://localhost:5173/leads" style="display: inline-block; padding: 10px 20px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">View Leads List</a>
+                        <a href="{settings.FRONTEND_URL}/leads" style="display: inline-block; padding: 10px 20px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 13px; font-family: system-ui, -apple-system, sans-serif;">View Leads List</a>
                     </div>
                     <p style="font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 15px; font-family: system-ui, -apple-system, sans-serif;">
                         This notification was generated automatically by NexusAI Platform Core.
@@ -379,6 +462,17 @@ class DAGExecutor:
         # Record trace span start
         span_start = datetime.now(timezone.utc)
         current_context = self.memory.get_context_for_agent(agent_name)
+        
+        # Start span in global workflow_tracer
+        from app.observability.tracer import workflow_tracer
+        span = workflow_tracer.start_span(
+            trace_id=self.trace_id,
+            operation=agent_name,
+            agent_name=agent_name,
+            metadata={"company_name": current_context.get("company_name", "")}
+        )
+        span_id = span.span_id
+        
         await notify_agent_event(WSEventTypes.AGENT_THINKING, agent_name, target=current_context.get("company_name"))
         
         # Prepare inputs merging task templates with previous outputs
@@ -411,20 +505,49 @@ class DAGExecutor:
                 outputs = await agent.execute_with_fallback(inputs)
                 task.status = AgentState.RECOVERED
                 await notify_agent_event(WSEventTypes.AGENT_RECOVERED, agent_name, target=current_context.get("company_name"), data={"msg": "Self-healed from fallback cached registry."})
-                self._record_span(agent_name, span_start, "recovered")
+                self._record_span(agent_name, span_start, "recovered", span_id)
                 return outputs
             except Exception as fe:
                 task.status = AgentState.FAILED
                 task.error_message = str(fe)
-                self._record_span(agent_name, span_start, "failed")
+                self._record_span(agent_name, span_start, "failed", span_id)
                 return {}
 
         # 2. Regular execution path
         try:
-            outputs = await agent.execute(inputs)
+            if agent_name == "shadow_agent":
+                from app.core.debate import debate_protocol
+                company_name = current_context.get("company_name", "Unknown Company")
+                company_details = current_context.get("company_details", {})
+                icp_score = current_context.get("score", 0)
+                evidence = current_context.get("evidence_chain", [])
+                domain = inputs.get("domain", "hr_saas")
+                
+                # Execute OpenAI Debate Protocol
+                debate_results = await debate_protocol.run_debate(company_name, company_details, icp_score, evidence, domain)
+                
+                # Update memory with debate transcript
+                self.memory.update_from_agent({"debate_transcript": debate_results["transcript"]})
+                
+                outputs = {"shadow_verdict": debate_results["verdict"].dict(), "debate_transcript": debate_results["transcript"]}
+                
+                if debate_results["verdict"].status == "DIVERGENCE_WARNING":
+                    await notify_agent_event(
+                        WSEventTypes.SHADOW_DIVERGENCE, 
+                        agent_name, 
+                        target=company_name, 
+                        data={
+                            "reason": debate_results["verdict"].reason,
+                            "reasons": debate_results["verdict"].reasons,
+                            "confidence": debate_results["verdict"].confidence
+                        }
+                    )
+            else:
+                outputs = await agent.execute(inputs)
+                
             task.status = AgentState.COMPLETED
             await notify_agent_event(WSEventTypes.AGENT_COMPLETED, agent_name, target=current_context.get("company_name"), data={"output": outputs})
-            self._record_span(agent_name, span_start, "completed")
+            self._record_span(agent_name, span_start, "completed", span_id)
             return outputs
         except Exception as e:
             # Self-healing retry fallback if live execution throws error
@@ -439,15 +562,15 @@ class DAGExecutor:
                 outputs = await agent.execute_with_fallback(inputs)
                 task.status = AgentState.RECOVERED
                 await notify_agent_event(WSEventTypes.AGENT_RECOVERED, agent_name, target=current_context.get("company_name"))
-                self._record_span(agent_name, span_start, "recovered")
+                self._record_span(agent_name, span_start, "recovered", span_id)
                 return outputs
             except Exception as fe:
                 task.status = AgentState.FAILED
                 task.error_message = str(fe)
-                self._record_span(agent_name, span_start, "failed")
+                self._record_span(agent_name, span_start, "failed", span_id)
                 return {}
 
-    def _record_span(self, agent_name: str, start_time: datetime, status: str):
+    def _record_span(self, agent_name: str, start_time: datetime, status: str, span_id: str = None):
         """Record an observability trace span for this agent execution."""
         end_time = datetime.now(timezone.utc)
         self.trace_spans.append({
@@ -457,3 +580,6 @@ class DAGExecutor:
             "duration_ms": int((end_time - start_time).total_seconds() * 1000),
             "status": status,
         })
+        if span_id:
+            from app.observability.tracer import workflow_tracer
+            workflow_tracer.finish_span(span_id, status)

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Node, Edge, Position, MarkerType } from 'reactflow';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Terminal, Grid, Activity, Sparkles, Bell, Sliders, Eye, AlertOctagon, HelpCircle, ShieldAlert } from 'lucide-react';
 
 // Import Modular Components
 import Sidebar from './components/Sidebar';
@@ -10,10 +11,17 @@ import LeadsView from './components/LeadsView';
 import ApprovalsView from './components/ApprovalsView';
 import ConfigView from './components/ConfigView';
 import ObservabilityView from './components/ObservabilityView';
+import LandingPage from './components/LandingPage';
+
+// Interactive Redesign Components
+import CommandPalette from './components/CommandPalette';
+import ChaosMonkeyPopover from './components/ChaosMonkeyPopover';
+import ArchModeOverlay from './components/ArchModeOverlay';
+import SimulatorView from './components/SimulatorView';
 
 // API Gateways
-const API_BASE = 'http://127.0.0.1:8000/v2';
-const WS_BASE = 'ws://127.0.0.1:8000/v2/ws/events';
+const API_BASE = 'http://localhost:8000/v2';
+const WS_BASE = 'ws://localhost:8000/v2/ws/events';
 
 interface Lead {
   id: string;
@@ -29,13 +37,25 @@ interface Lead {
   attestation?: any;
   plan_reasoning?: string;
   token_usage?: any;
+  debate_transcript?: any[];
+  buying_committee?: any[];
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'workflows' | 'leads' | 'approvals' | 'config' | 'observability'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'workflows' | 'leads' | 'approvals' | 'config' | 'observability' | 'simulator'>('dashboard');
+  const [inDashboard, setInDashboard] = useState(false);
   const [companyInput, setCompanyInput] = useState('');
   const [domainInput, setDomainInput] = useState('hr_saas');
-  const [collapsed, setCollapsed] = useState(false);
+
+  // Overlay States
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isChaosMonkeyOpen, setIsChaosMonkeyOpen] = useState(false);
+  const [isArchModeOpen, setIsArchModeOpen] = useState(false);
+  const [isTerminalExpanded, setIsTerminalExpanded] = useState(false);
+
+  // Active tracking for Arch Mode highlighting
+  const [activeAgent, setActiveAgent] = useState<string | null>(null);
+  const [activeAgentState, setActiveAgentState] = useState<string | null>(null);
 
   // Floating Notifications State
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'success' | 'warning' | 'info' }[]>([]);
@@ -44,7 +64,7 @@ export default function App() {
     setNotifications((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setNotifications((prev) => prev.filter((n) => n.id !== id));
-    }, 6000);
+    }, 4000);
   }, []);
 
   // Core App states
@@ -82,7 +102,7 @@ export default function App() {
       { id: 'icp_matcher', label: 'ICP Matcher', desc: 'Scores Compatibility' },
       { id: 'shadow_agent', label: 'Shadow Agent', desc: "Devil's Advocate Check" },
       { id: 'persona_finder', label: 'Persona Finder', desc: 'Matches Buyer Personas' },
-      { id: 'contact_enricher', label: 'Contact Enricher', desc: 'PII & Cryptographic Encrypter' },
+      { id: 'contact_enricher', label: 'Contact Enricher', desc: 'PII Vault Encrypter' },
       { id: 'summary_agent', label: 'Summary Agent', desc: 'Outreach Messaging' },
       { id: 'validator_agent', label: 'Validator Agent', desc: 'Quality Guardrail Check' }
     ];
@@ -97,10 +117,10 @@ export default function App() {
         output: null
       },
       style: {
-        background: 'rgba(10, 15, 30, 0.95)',
-        color: '#f8fafc',
-        border: '1px solid rgba(6, 182, 212, 0.15)',
-        borderRadius: '12px',
+        background: 'rgba(17, 17, 16, 0.95)',
+        color: '#f5f5f0',
+        border: '0.5px solid var(--bg-border)',
+        borderRadius: '4px',
         padding: '12px',
         width: '145px',
         fontSize: '11px',
@@ -119,8 +139,8 @@ export default function App() {
         source: nodeNames[i].id,
         target: nodeNames[i + 1].id,
         animated: false,
-        style: { stroke: 'rgba(6, 182, 212, 0.12)', strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: 'rgba(6, 182, 212, 0.12)' }
+        style: { stroke: 'var(--bg-border)', strokeWidth: 1.5 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--bg-border-strong)' }
       });
     }
 
@@ -134,35 +154,31 @@ export default function App() {
       prevNodes.map((node) => {
         if (node.id !== nodeId) return node;
 
-        let borderStyle = '1px solid rgba(6, 182, 212, 0.15)';
+        let borderStyle = '0.5px solid var(--bg-border)';
         let glowStyle = 'none';
-        let bgStyle = 'rgba(10, 15, 30, 0.95)';
+        let bgStyle = 'rgba(17, 17, 16, 0.95)';
 
         switch (status) {
           case 'thinking':
-            borderStyle = '1px solid #06b6d4';
-            glowStyle = '0 0 20px rgba(6, 182, 212, 0.4)';
-            bgStyle = 'rgba(6, 182, 212, 0.08)';
+            borderStyle = '0.5px solid var(--accent)';
+            glowStyle = '0 0 20px rgba(200, 247, 58, 0.15)';
+            bgStyle = 'rgba(200, 247, 58, 0.05)';
             break;
           case 'completed':
-            borderStyle = '1px solid #10b981';
-            glowStyle = '0 0 15px rgba(16, 185, 129, 0.25)';
-            bgStyle = 'rgba(16, 185, 129, 0.06)';
+            borderStyle = '0.5px solid var(--success)';
+            bgStyle = 'rgba(74, 222, 128, 0.05)';
             break;
           case 'failed':
-            borderStyle = '1px solid #f43f5e';
-            glowStyle = '0 0 20px rgba(244, 63, 94, 0.4)';
-            bgStyle = 'rgba(244, 63, 94, 0.08)';
+            borderStyle = '0.5px solid var(--danger)';
+            bgStyle = 'rgba(248, 113, 113, 0.05)';
             break;
           case 'retrying':
-            borderStyle = '1px solid #f59e0b';
-            glowStyle = '0 0 15px rgba(245, 158, 11, 0.3)';
-            bgStyle = 'rgba(245, 158, 11, 0.06)';
+            borderStyle = '0.5px solid var(--warning)';
+            bgStyle = 'rgba(245, 158, 11, 0.05)';
             break;
           case 'recovered':
-            borderStyle = '1px solid #eab308';
-            glowStyle = '0 0 15px rgba(234, 179, 8, 0.2)';
-            bgStyle = 'rgba(234, 179, 8, 0.05)';
+            borderStyle = '0.5px solid var(--accent)';
+            bgStyle = 'rgba(200, 247, 58, 0.04)';
             break;
         }
 
@@ -192,12 +208,12 @@ export default function App() {
             animated: status === 'thinking' || status === 'completed',
             style: {
               ...edge.style,
-              stroke: status === 'completed' ? '#10b981' : '#06b6d4',
-              strokeWidth: 2
+              stroke: status === 'completed' ? 'var(--success)' : 'var(--accent)',
+              strokeWidth: 1.5
             },
             markerEnd: {
               type: MarkerType.ArrowClosed,
-              color: status === 'completed' ? '#10b981' : '#06b6d4'
+              color: status === 'completed' ? 'var(--success)' : 'var(--accent)'
             }
           };
         }
@@ -216,7 +232,7 @@ export default function App() {
         fetch(`${API_BASE}/observability/traces`)
       ]);
 
-      if (leadsRes.ok) setLeads(await leadsRes.ok ? await leadsRes.json() : []);
+      if (leadsRes.ok) setLeads(await leadsRes.json());
       if (approvalsRes.ok) setApprovalQueue(await approvalsRes.json());
       if (metricsRes.ok) setMetrics(await metricsRes.json());
       if (tracesRes.ok) {
@@ -274,6 +290,18 @@ export default function App() {
     fetchTraceSpans();
   }, [fetchTraceSpans]);
 
+  // Keybind listeners for command palette and arch mode
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeys);
+    return () => window.removeEventListener('keydown', handleGlobalKeys);
+  }, []);
+
   // WebSockets setup
   useEffect(() => {
     const ws = new WebSocket(WS_BASE);
@@ -282,6 +310,15 @@ export default function App() {
     ws.onmessage = (event) => {
       const evt = JSON.parse(event.data);
       console.log('[WebSocket] received event:', evt);
+
+      // Track active agents for Layer pulsing
+      if (evt.agent && evt.type === 'agent_thinking') {
+        setActiveAgent(evt.agent);
+        setActiveAgentState('thinking');
+      } else if (evt.agent && evt.type === 'agent_completed') {
+        setActiveAgent(evt.agent);
+        setActiveAgentState('completed');
+      }
 
       // Update thought stream log
       setAgentFeed((prev) => [
@@ -315,6 +352,7 @@ export default function App() {
 
       // If workflow finishes entirely
       if (evt.type === 'workflow_started') {
+        setIsTerminalExpanded(true); // Auto-expand terminal
         showNotification(`🚀 Initiating pipeline for discovered target: ${evt.target}`, 'info');
       }
 
@@ -345,12 +383,11 @@ export default function App() {
 
   // Execute workflow
   const handleTriggerDiscovery = async () => {
-    // Clear old runs (only streaming thoughts, keep agent feed)
     setStreamingThoughts({});
-    
     const isAutoDiscover = !companyInput.trim() || companyInput.toLowerCase() === 'discover' || companyInput.toLowerCase() === 'auto';
     initializeDAG(isAutoDiscover ? 'Autonomous Search' : companyInput);
     setActiveTab('workflows');
+    setIsTerminalExpanded(true);
 
     try {
       const endpoint = isAutoDiscover ? `${API_BASE}/workflows/discover` : `${API_BASE}/workflows/run`;
@@ -411,21 +448,18 @@ export default function App() {
     setAgentFeed([]);
   };
 
-  const handleClearThoughts = () => {
-    setStreamingThoughts({});
-  };
-
   // Toggle Chaos Monkey
-  const toggleChaosMonkey = async () => {
+  const handleToggleChaosMonkey = async (enabled: boolean, rate: number, target: string) => {
     try {
       const res = await fetch(`${API_BASE}/chaos/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabled: !chaosEnabled })
+        body: JSON.stringify({ enabled })
       });
       if (res.ok) {
         const data = await res.json();
         setChaosEnabled(data.enabled);
+        showNotification(data.enabled ? `Chaos Monkey enabled on ${target} (${rate}% failure)` : 'Chaos Monkey disabled', 'warning');
       }
     } catch (e) {
       console.error(e);
@@ -475,30 +509,78 @@ export default function App() {
     }));
   };
 
-  return (
-    <div className="flex flex-1 overflow-hidden cyber-grid h-screen w-screen bg-[#030712] text-slate-100 font-sans">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        chaosEnabled={chaosEnabled}
-        toggleChaosMonkey={toggleChaosMonkey}
-        approvalCount={approvalQueue.length}
-        collapsed={collapsed}
-        setCollapsed={setCollapsed}
-      />
+  if (!inDashboard) {
+    return <LandingPage onEnterDashboard={() => setInDashboard(true)} />;
+  }
 
-      {/* Main Panel Content */}
-      <main className="flex-1 flex flex-col overflow-hidden p-6 relative z-10">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="flex-1 min-h-0 flex flex-col overflow-hidden"
+  return (
+    <div className="flex flex-col h-screen w-screen bg-base text-primary font-sans relative overflow-hidden">
+      
+      {/* Top Command Bar */}
+      <header className="h-12 border-b border-strong bg-surface px-4 flex items-center justify-between shrink-0 z-20">
+        <div className="flex items-center gap-2 font-display font-bold text-xs tracking-wider uppercase text-primary">
+          <span>⚡ NEXUSAI</span>
+          <span className="text-muted">COGNITIVE ORCHESTRATOR</span>
+        </div>
+
+        {/* Center Search / Command Trigger */}
+        <button
+          onClick={() => setIsCommandPaletteOpen(true)}
+          className="flex items-center justify-between px-3 py-1.5 w-64 rounded bg-base border border-strong text-muted text-[11px] font-mono hover:border-accent hover:text-secondary transition"
+        >
+          <span>Search or run a command...</span>
+          <span>⌘K</span>
+        </button>
+
+        {/* Right Status / Actions */}
+        <div className="flex items-center gap-4 text-[10px] font-mono">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-success" />
+            <span className="text-secondary">GROQ PRIMARY</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+            <span className="text-secondary">CEREBRAS</span>
+          </div>
+          
+          <button
+            onClick={() => setIsArchModeOpen(true)}
+            className="px-2.5 py-1 border border-strong hover:border-accent hover:text-accent font-display font-semibold uppercase tracking-wider rounded-sm transition text-secondary"
           >
+            ARCH MODE
+          </button>
+        </div>
+      </header>
+
+      {/* Main content body container */}
+      <div className="flex-1 flex overflow-hidden relative">
+        
+        {/* Left icon rail */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={(tab) => {
+            if (tab === 'simulator') {
+              setActiveTab('simulator');
+            } else {
+              setActiveTab(tab);
+            }
+          }}
+          chaosEnabled={chaosEnabled}
+          onOpenChaosMonkey={() => setIsChaosMonkeyOpen(true)}
+          approvalCount={approvalQueue.length}
+        />
+
+        {/* Content pane */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+          
+          {/* Chaos banner if active */}
+          {chaosEnabled && (
+            <div className="bg-danger/10 border-b border-danger/20 text-danger text-[10px] font-mono px-4 py-1.5 text-center shrink-0 uppercase tracking-widest animate-pulse">
+              ⚡ CHAOS MODE ACTIVE — Fault injection enabled
+            </div>
+          )}
+
+          <div className="flex-1 p-6 overflow-hidden flex flex-col">
             {activeTab === 'dashboard' && (
               <DashboardView
                 companyInput={companyInput}
@@ -522,7 +604,7 @@ export default function App() {
                 companyInput={companyInput}
                 agentFeed={agentFeed}
                 handleClearLogs={handleClearLogs}
-                handleClearThoughts={handleClearThoughts}
+                handleClearThoughts={() => setStreamingThoughts({})}
               />
             )}
 
@@ -562,32 +644,110 @@ export default function App() {
                 metrics={metrics}
               />
             )}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+
+            {activeTab === 'simulator' && (
+              <SimulatorView
+                onFireSignal={() => {
+                  fetchData();
+                  setActiveTab('workflows');
+                }}
+                showNotification={showNotification}
+              />
+            )}
+          </div>
+
+          {/* Collapsible terminal thought logs drawer */}
+          <div
+            className={`border-t border-strong bg-surface transition-all duration-300 flex flex-col shrink-0 overflow-hidden relative z-10`}
+            style={{ height: isTerminalExpanded ? '220px' : '32px' }}
+          >
+            {/* Header tab */}
+            <div className="h-8 border-b border-strong bg-[#0e0e0d] px-4 flex items-center justify-between font-mono text-[10px] select-none">
+              <div className="flex items-center gap-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                <span className="font-bold text-primary">LIVE THOUGHT STREAM</span>
+                <span className="text-muted">|</span>
+                <span className="text-muted">WS STATUS: ONLINE</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={handleClearLogs} className="text-muted hover:text-primary transition uppercase text-[9px]">Clear</button>
+                <button
+                  onClick={() => setIsTerminalExpanded(!isTerminalExpanded)}
+                  className="text-accent font-bold hover:underline transition uppercase text-[9px]"
+                >
+                  {isTerminalExpanded ? 'Collapse ↓' : 'Expand ↑'}
+                </button>
+              </div>
+            </div>
+
+            {/* Stream content */}
+            <div className="flex-1 p-3.5 bg-base overflow-y-auto terminal-scroll font-mono text-[11px] leading-relaxed">
+              {agentFeed.length === 0 ? (
+                <div className="text-muted">Ready. Awaiting pipeline triggers...</div>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {agentFeed.map((item, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <span className="text-muted">[{item.time}]</span>
+                      <span className={item.type === 'error' ? 'text-danger' : item.type === 'success' ? 'text-success' : 'text-secondary'}>
+                        {item.message}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
 
       {/* Floating Notifications */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm pointer-events-none">
+      <div className="fixed bottom-10 right-6 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none">
         {notifications.map((n) => (
-          <motion.div
+          <div
             key={n.id}
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className={`p-4 rounded-xl border pointer-events-auto backdrop-blur-md shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-x-0 ${
+            className={`p-3 rounded border pointer-events-auto backdrop-blur-md shadow-2xl flex items-center gap-2 transition-all font-mono text-[10.5px] ${
               n.type === 'success' 
-                ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-300' 
+                ? 'bg-success-dim border-success/30 text-success' 
                 : n.type === 'warning' 
-                ? 'bg-amber-950/90 border-amber-500/40 text-amber-300' 
-                : 'bg-cyan-950/90 border-cyan-500/40 text-cyan-300'
+                ? 'bg-danger-dim border-danger/30 text-danger' 
+                : 'bg-accent-dim border-accent/30 text-accent'
             }`}
           >
-            <div className="flex-1 text-xs font-semibold leading-relaxed pr-2">
-              {n.message}
-            </div>
-          </motion.div>
+            <span>{n.message}</span>
+          </div>
         ))}
       </div>
+
+      {/* Popovers / Modals */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSwitchTab={(tab) => {
+          setActiveTab(tab);
+        }}
+        onToggleChaosMonkey={() => handleToggleChaosMonkey(!chaosEnabled, 30, 'ALL AGENTS')}
+        onTriggerDiscovery={handleTriggerDiscovery}
+        onTriggerSimulator={() => {
+          setActiveTab('simulator');
+        }}
+      />
+
+      <ChaosMonkeyPopover
+        isOpen={isChaosMonkeyOpen}
+        onClose={() => setIsChaosMonkeyOpen(false)}
+        isEnabled={chaosEnabled}
+        onToggle={handleToggleChaosMonkey}
+      />
+
+      <ArchModeOverlay
+        isActive={isArchModeOpen}
+        onClose={() => setIsArchModeOpen(false)}
+        activeAgent={activeAgent}
+        agentState={activeAgentState}
+      />
+
     </div>
   );
 }

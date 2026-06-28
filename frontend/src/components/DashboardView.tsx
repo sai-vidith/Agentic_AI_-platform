@@ -1,15 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Search, 
-  Play, 
-  Activity, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Sparkles,
-  Zap,
-  RefreshCw
-} from 'lucide-react';
+import { Search, Play, ShieldAlert, Zap, Layers, RefreshCw } from 'lucide-react';
 
 interface DashboardViewProps {
   companyInput: string;
@@ -30,226 +21,182 @@ export default function DashboardView({
   domainInput,
   setDomainInput,
   handleTriggerDiscovery,
-  handleClearLogs,
   metrics,
   leads,
-  approvalQueue,
-  agentFeed
+  approvalQueue
 }: DashboardViewProps) {
-  
-  // Calculate pipeline stats
   const totalMonitored = leads.length + approvalQueue.length;
   const qualifiedLeads = leads.filter(l => l.icp_score >= 70).length;
   const riskAlerts = approvalQueue.length;
-  const selfHealRate = 100; // Calculated baseline
-
-  const stats = [
-    { label: 'MONITORED', value: totalMonitored, desc: 'Prospects in pipeline', color: 'border-cyan-500/20 text-cyan-400 bg-cyan-950/10' },
-    { label: 'ICP QUALIFIED', value: qualifiedLeads, desc: 'Score ≥ 70/100 target', color: 'border-emerald-500/20 text-emerald-400 bg-emerald-950/10' },
-    { label: 'RISK ALERTS', value: riskAlerts, desc: 'Needs manual review', color: 'border-amber-500/20 text-amber-400 bg-amber-950/10' },
-    { label: 'SELF-HEAL RATE', value: `${selfHealRate}%`, desc: 'Transient fault tolerance', color: 'border-violet-500/20 text-violet-400 bg-violet-950/10' }
-  ];
+  const selfHealRate = 100;
 
   return (
-    <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
-      {/* Header bar */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            Market Discovery Panel <Sparkles className="h-5 w-5 text-cyan-400 animate-pulse" />
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Initiate B2B agentic pipelines for target domains and monitor real-time decision-maker collection.
-          </p>
-        </div>
-      </div>
-
-      {/* Target input card */}
-      <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="p-4 glass-panel border border-slate-900 rounded-2xl flex flex-col md:flex-row gap-4 items-end bg-slate-950/40 relative overflow-hidden shrink-0"
-      >
-        <div className="flex-1 flex flex-col gap-2">
-          <label className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider">Target Company Name</label>
-          <div className="relative">
-            <Search className="absolute left-3.5 top-3.5 h-4.5 w-4.5 text-slate-500" />
-            <input
-              type="text"
-              value={companyInput}
-              onChange={(e) => setCompanyInput(e.target.value)}
-              placeholder="e.g. Stripe (or leave blank to auto-discover companies)"
-              className="w-full bg-slate-950/80 border border-slate-850 hover:border-slate-700 focus:border-cyan-500/50 text-slate-100 text-sm rounded-xl pl-11 pr-4 py-3 transition duration-200 outline-none placeholder:text-slate-650"
-            />
+    <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-1">
+      {/* Bento Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 shrink-0">
+        
+        {/* Trigger Discovery Card (Takes 60% of top row: 6 out of 10 cols) */}
+        <div className="lg:col-span-6 border border-strong rounded bg-surface p-5 flex flex-col justify-between space-y-4">
+          <div className="space-y-1">
+            <span className="text-[10px] font-semibold text-muted font-sans uppercase tracking-wider block">DISCOVERY ORCHESTRATOR</span>
+            <span className="font-display font-bold text-base text-primary block">Launch Event Pipeline</span>
           </div>
-        </div>
 
-        <div className="w-full md:w-56 flex flex-col gap-2">
-          <label className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider">Business Domain</label>
-          <select
-            value={domainInput}
-            onChange={(e) => setDomainInput(e.target.value)}
-            className="w-full bg-slate-950/80 border border-slate-850 hover:border-slate-700 focus:border-cyan-500/50 text-slate-350 text-sm rounded-xl px-4 py-3 transition duration-200 outline-none cursor-pointer"
-          >
-            <option value="hr_saas">HR SaaS Products</option>
-            <option value="cybersecurity">Cybersecurity Tools</option>
-          </select>
-        </div>
-
-        <button
-          onClick={handleTriggerDiscovery}
-          className="px-6 py-3.5 bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-400 hover:to-cyan-500 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-xl transition duration-200 shadow-[0_0_20px_rgba(6,182,212,0.15)] flex items-center gap-2"
-        >
-          <Play className="h-4 w-4 fill-slate-950 text-slate-950" /> Trigger Discovery
-        </button>
-      </motion.div>
-
-      {/* Model routing status */}
-      <div className="flex items-center gap-6 px-4 py-3 border border-slate-900 rounded-xl bg-slate-950/30 text-xs font-mono text-slate-450 justify-between shrink-0">
-        <div className="flex items-center gap-4">
-          <span className="text-[10px] font-bold text-slate-550">LLM POOL:</span>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            <span className="text-slate-300">Groq (primary)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-amber-500" />
-            <span className="text-slate-400">Cerebras (fallback)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-slate-650" />
-            <span className="text-slate-500">Gemini (tertiary)</span>
-          </div>
-        </div>
-        <div className="text-[10px] text-slate-500">
-          SENSORY PATHWAYS: DuckDuckGo Keyless Search · Firecrawl v2
-        </div>
-      </div>
-
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 shrink-0">
-        {stats.map((stat, i) => (
-          <motion.div
-            key={stat.label}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 + 0.1 }}
-            className={`p-5 rounded-2xl border ${stat.color} flex flex-col justify-between min-h-[120px] transition hover:translate-y-[-2px]`}
-          >
-            <span className="text-[9px] font-extrabold font-mono tracking-widest uppercase">{stat.label}</span>
-            <div className="my-2.5">
-              <span className="text-3xl font-black tracking-tight">{stat.value}</span>
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium">{stat.desc}</span>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* Bottom split panel: Live Log and Activity list */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-[300px]">
-        {/* WebSocket Live Log Console */}
-        <div className="lg:col-span-5 glass-panel border border-slate-900 p-5 rounded-2xl flex flex-col bg-slate-950/40 relative h-[400px]">
-          <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
-            <h3 className="text-xs font-bold text-slate-300 font-mono uppercase tracking-wider flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
-              </span>
-              Live Thought Stream
-            </h3>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleClearLogs}
-                className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 hover:border-slate-700 rounded text-[9px] font-mono font-bold transition flex items-center gap-1"
-              >
-                Clear Logs
-              </button>
-              <span className="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/25 text-cyan-300 text-[9px] font-mono">
-                WS Connected
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex-1 bg-slate-950/80 border border-slate-900 rounded-xl p-4 font-mono text-[11px] text-cyan-400 overflow-y-auto leading-relaxed shadow-inner">
-            {agentFeed.length === 0 ? (
-              <div className="text-slate-500 flex flex-col gap-1">
-                <p>00:00 Waiting for workflow trigger...</p>
-                <p>00:00 WebSocket listening on ws://localhost:8000/v2/ws/events</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5 font-mono text-[10px]">
+              <span className="text-muted uppercase">Target Company:</span>
+              <div className="relative">
+                <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted" />
+                <input
+                  type="text"
+                  value={companyInput}
+                  onChange={(e) => setCompanyInput(e.target.value)}
+                  placeholder="e.g. Stripe"
+                  className="w-full bg-base border border-strong rounded-sm pl-10 pr-3 py-2 text-primary placeholder:text-muted outline-none focus:border-accent text-xs font-sans"
+                />
               </div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {agentFeed.map((item, idx) => (
-                  <div key={idx} className="flex gap-2">
-                    <span className="text-slate-600 shrink-0">[{item.time}]</span>
-                    <span className={
-                      item.type === 'error' ? 'text-rose-400' :
-                      item.type === 'success' ? 'text-emerald-400' :
-                      item.type === 'system' ? 'text-violet-400 font-bold' :
-                      'text-cyan-300'
-                    }>
-                      {item.message}
+            </div>
+
+            <div className="space-y-1.5 font-mono text-[10px]">
+              <span className="text-muted uppercase">Business Domain:</span>
+              <select
+                value={domainInput}
+                onChange={(e) => setDomainInput(e.target.value)}
+                className="w-full bg-base border border-strong rounded-sm px-3 py-2.5 text-secondary outline-none focus:border-accent text-xs cursor-pointer font-sans"
+              >
+                <option value="hr_saas">HR SaaS Products</option>
+                <option value="cybersecurity">Cybersecurity Tools</option>
+              </select>
+            </div>
+          </div>
+
+          <button
+            onClick={handleTriggerDiscovery}
+            className="w-full py-2.5 bg-accent hover:bg-[#d4f950] text-base font-display font-semibold uppercase tracking-wider text-[12px] rounded-sm transition duration-200 flex justify-center items-center gap-2 border border-transparent hover:border-accent/50"
+          >
+            <Play className="w-3.5 h-3.5 fill-base text-base" /> Trigger Discovery
+          </button>
+        </div>
+
+        {/* Metric Cards (Take remaining 40% of top row: 4 out of 10 cols) */}
+        <div className="lg:col-span-4 grid grid-cols-2 gap-6">
+          {/* Monitored Metric */}
+          <div className="border border-strong rounded p-5 flex flex-col justify-between min-h-[120px]">
+            <span className="text-[10px] font-semibold font-sans tracking-widest text-muted uppercase">MONITORED</span>
+            <div className="text-3xl font-bold font-mono text-primary my-1">{totalMonitored}</div>
+            <span className="text-[10px] text-muted font-sans">Active in pipeline</span>
+          </div>
+
+          {/* Qualified Metric */}
+          <div className="border border-strong rounded p-5 flex flex-col justify-between min-h-[120px]">
+            <span className="text-[10px] font-semibold font-sans tracking-widest text-muted uppercase">QUALIFIED</span>
+            <div className="text-3xl font-bold font-mono text-accent my-1">{qualifiedLeads}</div>
+            <span className="text-[10px] text-muted font-sans">ICP Score ≥ 70</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Second Row Bento grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 shrink-0">
+        
+        {/* LLM Pool Status (Left 60%) */}
+        <div className="lg:col-span-6 border border-strong rounded bg-surface p-5 space-y-4">
+          <span className="text-[10px] font-semibold text-muted font-sans uppercase tracking-wider block">LLM ROUTER POOL</span>
+          
+          <div className="grid grid-cols-3 gap-3">
+            {/* Groq Card */}
+            <div className="p-3 bg-base border border-strong rounded space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-display font-medium text-[11px] text-primary">GROQ</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              </div>
+              <div className="font-mono text-[9px] text-muted">Llama-3-70b-Tool</div>
+              <div className="text-[9px] text-accent font-mono font-bold">PRIMARY · 18ms</div>
+            </div>
+
+            {/* Cerebras Card */}
+            <div className="p-3 bg-base border border-strong rounded space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-display font-medium text-[11px] text-primary">CEREBRAS</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-warning" />
+              </div>
+              <div className="font-mono text-[9px] text-muted">Llama-3.1-8b</div>
+              <div className="text-[9px] text-warning font-mono font-bold">FALLBACK · 12ms</div>
+            </div>
+
+            {/* Gemini Card */}
+            <div className="p-3 bg-base border border-strong rounded space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-display font-medium text-[11px] text-secondary">GEMINI</span>
+                <span className="h-1.5 w-1.5 rounded-full bg-disabled" />
+              </div>
+              <div className="font-mono text-[9px] text-muted">Gemini-1.5-Pro</div>
+              <div className="text-[9px] text-muted font-mono font-bold">STANDBY · Idle</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Alerts / Self-heal (Right 40%) */}
+        <div className="lg:col-span-4 grid grid-cols-2 gap-6">
+          {/* Risk Alerts */}
+          <div className="border border-strong rounded p-5 flex flex-col justify-between min-h-[120px]">
+            <span className="text-[10px] font-semibold font-sans tracking-widest text-muted uppercase flex items-center gap-1.5">
+              <ShieldAlert className="w-3.5 h-3.5 text-danger" /> RISK ALERTS
+            </span>
+            <div className="text-3xl font-bold font-mono text-danger my-1">{riskAlerts}</div>
+            <span className="text-[10px] text-muted font-sans">Queue size</span>
+          </div>
+
+          {/* Self-heal */}
+          <div className="border border-strong rounded p-5 flex flex-col justify-between min-h-[120px]">
+            <span className="text-[10px] font-semibold font-sans tracking-widest text-muted uppercase flex items-center gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5 text-success" /> SELF-HEAL
+            </span>
+            <div className="text-3xl font-bold font-mono text-success my-1">{selfHealRate}%</div>
+            <span className="text-[10px] text-muted font-sans">Baselines maintained</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Evaluated Pipeline leads */}
+      <div className="border border-strong rounded bg-surface p-4 flex flex-col flex-1 min-h-[200px]">
+        <div className="flex justify-between items-center border-b border-strong pb-3 mb-4">
+          <span className="text-[10px] font-sans font-bold text-muted tracking-wider uppercase">Active Pipeline Discoveries</span>
+          <span className="text-[9px] text-muted font-mono">Persistence: SQLite Locked</span>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3.5">
+          {leads.length === 0 && approvalQueue.length === 0 ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted border border-dashed border-strong rounded p-6">
+              <span className="text-xs font-mono">No prospects logged. Run event pipeline trigger above...</span>
+            </div>
+          ) : (
+            Array.from(new Map([...approvalQueue, ...leads].map(item => [item.id, item])).values())
+              .slice(0, 5)
+              .map((lead, idx) => (
+              <div key={lead.id || idx} className="p-3 border border-strong rounded bg-base hover:bg-elevated transition flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-bold text-xs text-primary">{lead.company_name}</span>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-mono font-bold uppercase border ${
+                      lead.status === 'approved' ? 'bg-success-dim text-success border-success/20' :
+                      lead.status === 'rejected' ? 'bg-danger-dim text-danger border-danger/20' :
+                      lead.status === 'pending_approval' ? 'bg-warning-dim text-warning border-warning/20 animate-pulse' :
+                      'bg-accent-dim text-accent border-accent/20'
+                    }`}>
+                      {lead.status === 'pending_approval' ? 'Review Required' : lead.status}
                     </span>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Live System Activity Feed - Fixed height for internal scrolling */}
-        <div className="lg:col-span-7 glass-panel border border-slate-900 p-5 rounded-2xl flex flex-col bg-slate-950/40 h-[400px]">
-          <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
-            <h3 className="text-xs font-bold text-slate-300 font-mono uppercase tracking-wider">
-              Recent Discoveries
-            </h3>
-            <span className="text-[10px] text-slate-500 font-mono">
-              Database Sync: Active
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
-            {leads.length === 0 && approvalQueue.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-slate-550 border border-dashed border-slate-900 rounded-xl p-8">
-                <RefreshCw className="h-6 w-6 text-slate-650 animate-spin mb-3" />
-                <p className="text-xs font-semibold">No prospects evaluated yet.</p>
-                <p className="text-[10px] text-slate-600 mt-1 text-center">Type in a target company above and trigger the agentic loop.</p>
-              </div>
-            ) : (
-              Array.from(new Map([...approvalQueue, ...leads].map(item => [item.id, item])).values())
-                .slice(0, 5)
-                .map((lead, idx) => (
-                <div key={lead.id || idx} className="p-3 border border-slate-900 hover:border-slate-800 rounded-xl bg-slate-950/40 flex items-center justify-between transition">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-200">{lead.company_name}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase ${
-                        lead.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                        lead.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                        lead.status === 'pending_approval' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse' :
-                        'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                      }`}>
-                        {lead.status === 'pending_approval' ? 'Needs Review' : lead.status}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-mono">ID: {lead.id.substring(0, 8)}...</span>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="flex flex-col items-end">
-                      <span className="text-[10px] font-bold text-slate-400 font-mono">ICP SCORE</span>
-                      <span className={`text-sm font-black font-mono ${
-                        lead.icp_score >= 70 ? 'text-emerald-400' :
-                        lead.icp_score >= 50 ? 'text-amber-400' :
-                        'text-rose-400'
-                      }`}>
-                        {lead.icp_score}/100
-                      </span>
-                    </div>
-                  </div>
+                  <div className="text-[10px] font-mono text-muted">Verification ID: {lead.id.substring(0, 16)}</div>
                 </div>
-              ))
-            )}
-          </div>
+
+                <div className="flex flex-col items-end">
+                  <span className="text-[9px] font-sans font-bold text-muted uppercase tracking-wider">ICP score</span>
+                  <span className="font-mono font-black text-sm text-primary">{lead.icp_score}/100</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

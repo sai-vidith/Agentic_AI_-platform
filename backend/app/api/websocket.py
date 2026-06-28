@@ -24,12 +24,16 @@ class ConnectionManager:
             print(f"Client disconnected. Active connections: {len(self.active_connections)}")
 
     async def broadcast(self, message: Dict[str, Any]):
+        failed_connections = []
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
             except Exception:
-                # Remove stale connection
-                pass
+                failed_connections.append(connection)
+        
+        for connection in failed_connections:
+            if connection in self.active_connections:
+                self.active_connections.remove(connection)
 
 manager = ConnectionManager()
 

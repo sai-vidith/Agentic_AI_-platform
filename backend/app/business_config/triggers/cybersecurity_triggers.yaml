@@ -8,6 +8,13 @@ triggers:
       - "seeking ISO 27001"
       - "GDPR audit"
       - "compliance readiness"
+      - "compliance audit"
+      - "HIPAA compliance"
+      - "PCI-DSS compliance"
+      - "FedRAMP ready"
+      - "HITRUST certified"
+      - "SOC 2 Type II"
+      - "SOC2 Type II"
     score_boost: 25
     description: "Startups preparing for SOC 2 or ISO audits have high immediate demand for security controls."
   - id: series_a_funding
@@ -18,6 +25,10 @@ triggers:
       - "Series A funding"
       - "raised Series A"
       - "funding round"
+      - "series B raised"
+      - "seed round closed"
+      - "funding round raised"
+      - "raises millions"
     score_boost: 20
     description: "Post-Series A funding requires startups to build secure infrastructure to sell to enterprise accounts."
   - id: security_leadership_change
@@ -27,6 +38,10 @@ triggers:
       - "appointed Head of Security"
       - "new VP of Security"
       - "appoints new CISO"
+      - "VP of InfoSec"
+      - "Chief Information Security Officer"
+      - "Security Architect joined"
+      - "Director of InfoSec"
     score_boost: 20
     description: "A new CISO or security lead typically initiates tool audits and implements new security vendor solutions."
   - id: global_expansion
@@ -36,5 +51,9 @@ triggers:
       - "expands to Europe"
       - "global expansion"
       - "opening new data center"
+      - "opening UK office"
+      - "geographical expansion"
+      - "sovereign cloud"
+      - "multi-region deployment"
     score_boost: 15
     description: "Entering new geographies triggers strict regulatory requirements (GDPR, CCPA, HIPAA) requiring security audits."

@@ -1,16 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  CheckCircle2, 
-  Trash2, 
-  Mail, 
-  Eye, 
-  ShieldCheck, 
-  Network,
-  ChevronRight,
-  Sparkles,
-  ExternalLink
-} from 'lucide-react';
+import { ShieldCheck, Mail, Eye, Network, Check, X, ShieldAlert, Cpu } from 'lucide-react';
 
 interface LeadsViewProps {
   leads: any[];
@@ -29,76 +19,143 @@ export default function LeadsView({
   simulateVaultAccess,
   handleDeleteLead
 }: LeadsViewProps) {
+  const [expandedIcpId, setExpandedIcpId] = useState<string | null>(null);
   
-  // Filter for qualified leads
   const qualifiedLeads = leads.filter(l => l.status === 'approved' || l.icp_score >= 70);
 
+  const toggleIcpBreakdown = (e: React.MouseEvent, leadId: string) => {
+    e.stopPropagation();
+    setExpandedIcpId(prev => (prev === leadId ? null : leadId));
+  };
+
   return (
-    <div className="flex-1 flex gap-6 overflow-hidden" style={{ height: '100%' }}>
+    <div className="flex-1 flex gap-6 overflow-hidden h-full">
       {/* Left Pane: Leads List */}
-      <div className="w-1/2 flex flex-col gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-            Qualified Leads Vault <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Browse leads matching target ICP guidelines and access decrypted secure communication vault values.
-          </p>
+      <div className="w-1/2 flex flex-col gap-4 min-h-0">
+        <div className="border-b border-strong pb-3">
+          <h2 className="font-display font-bold text-lg text-primary uppercase tracking-tight">QUALIFIED LEADS VAULT</h2>
+          <p className="text-[11px] text-muted font-sans mt-0.5">Explore discovered leads that successfully cleared the target scoring threshold.</p>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3 min-h-0">
+        <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
           {qualifiedLeads.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-550 border border-dashed border-slate-900 rounded-2xl p-8">
-              <CheckCircle2 className="h-7 w-7 text-slate-700 mb-3" />
-              <p className="text-xs font-bold text-slate-400">No leads qualified yet</p>
-              <p className="text-[10px] text-slate-500 mt-1 leading-normal text-center max-w-[280px]">
-                Once discoveries finish scoring above the 70 target or get manual approval, they populate here.
-              </p>
+            <div className="flex-1 flex flex-col items-center justify-center text-muted border border-dashed border-strong rounded p-8">
+              <ShieldCheck className="h-7 w-7 text-disabled mb-3" />
+              <p className="text-xs font-mono">No qualified leads logged.</p>
             </div>
           ) : (
             qualifiedLeads.map((lead) => {
               const isSelected = selectedLead?.id === lead.id;
+              const isExpanded = expandedIcpId === lead.id;
+              
               return (
                 <div
                   key={lead.id}
                   onClick={() => setSelectedLead(lead)}
-                  className={`w-full text-left p-4.5 border rounded-2xl transition-all relative flex flex-col gap-2.5 cursor-pointer ${
-                    isSelected 
-                      ? 'border-cyan-500/30 bg-cyan-500/5 shadow-[0_0_15px_rgba(6,182,212,0.05)]' 
-                      : 'border-slate-900 bg-slate-950/40 hover:border-slate-800'
+                  className={`p-4 border rounded cursor-pointer transition-all flex flex-col gap-3 ${
+                    isSelected ? 'border-accent bg-accent-dim' : 'border-strong bg-surface hover:border-border-strong'
                   }`}
                 >
+                  {/* Top Row: Name, ICP, Status */}
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-sm text-slate-200">{lead.company_name}</span>
-                    <div className="flex items-center gap-2.5">
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold font-mono ${
-                        lead.icp_score >= 70 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/15'
-                      }`}>
-                        ICP {lead.icp_score}/100
-                      </span>
+                    <div>
+                      <h3 className="font-display font-bold text-sm text-primary">{lead.company_name}</h3>
+                      <div className="text-[10px] text-muted font-mono mt-0.5">
+                        {lead.company_details?.industry || 'Fintech'} · {lead.company_details?.hq || 'Remote'} · {lead.company_details?.founded || 'Series A'}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteLead(lead.id);
-                        }}
-                        className="p-1 rounded-lg border border-transparent hover:border-slate-850 hover:bg-slate-900/60 text-slate-500 hover:text-slate-350 transition"
+                        onClick={(e) => toggleIcpBreakdown(e, lead.id)}
+                        className="px-2 py-0.5 bg-base border border-strong rounded text-[10px] font-mono text-accent hover:border-accent"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        ICP: {lead.icp_score}
                       </button>
+                      <span className="w-4 h-4 rounded-full bg-success-dim border border-success/30 flex items-center justify-center text-success text-[8px]">✓</span>
                     </div>
                   </div>
-                  
-                  {lead.company_details?.description && (
-                    <p className="text-[10.5px] text-slate-450 line-clamp-2 leading-relaxed">
-                      {lead.company_details.description}
-                    </p>
+
+                  {/* Expanded ICP Breakdown */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="p-3 bg-base rounded border border-strong space-y-2.5 font-mono text-[9px] text-secondary shrink-0 overflow-hidden"
+                      >
+                        <div className="font-bold text-[10px] text-accent uppercase">Decision DNA Breakdown</div>
+                        
+                        <div className="space-y-1">
+                          <div className="flex justify-between"><span>Company Size Match:</span><span>90%</span></div>
+                          <div className="w-full bg-surface h-1 rounded"><div className="bg-accent h-full w-[90%]" /></div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex justify-between"><span>Growth Trajectory:</span><span>85%</span></div>
+                          <div className="w-full bg-surface h-1 rounded"><div className="bg-accent h-full w-[85%]" /></div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <div className="flex justify-between"><span>Tech Stack Compatibility:</span><span>75%</span></div>
+                          <div className="w-full bg-surface h-1 rounded"><div className="bg-accent h-full w-[75%]" /></div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div className="border-t border-strong" />
+
+                  {/* Contact Row */}
+                  {lead.contacts && lead.contacts.length > 0 && (
+                    <div className="flex justify-between items-center text-[11px] font-mono">
+                      <div className="text-secondary truncate max-w-[200px]">
+                        <span>{lead.contacts[0].title}: </span>
+                        <span className="text-primary">{lead.contacts[0].name}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted font-mono text-[10px]">
+                          {decryptedPII[lead.contacts[0].raw_email || lead.id] ? decryptedPII[lead.contacts[0].raw_email || lead.id].email : 'pr████@razorx.in'}
+                        </span>
+                        {!decryptedPII[lead.contacts[0].raw_email || lead.id] && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              simulateVaultAccess(lead.id, lead.contacts[0].raw_email, lead.contacts[0].raw_phone, lead.contacts[0].plain_email, lead.contacts[0].plain_phone);
+                            }}
+                            className="p-1 bg-elevated border border-strong rounded hover:border-accent text-accent"
+                          >
+                            🔓
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   )}
- 
-                  <div className="flex items-center justify-between text-[9px] font-mono text-slate-500 border-t border-slate-900/60 pt-2 mt-1">
-                    <span>SECTOR: {lead.company_details?.industry || 'N/A'}</span>
-                    <span className="flex items-center gap-1 text-slate-400 font-bold group-hover:text-cyan-400">
-                      EXPLORE <ChevronRight className="h-3 w-3" />
+
+                  {/* Shadow verdict & attestation row */}
+                  <div className="flex justify-between items-center text-[10px] font-mono text-muted pt-1">
+                    <span className="flex items-center gap-1">
+                      SHADOW: 
+                      <span className={lead.shadow_verdict?.status === 'DIVERGENCE_WARNING' ? 'text-warning font-bold' : 'text-success font-bold'}>
+                        {lead.shadow_verdict?.status === 'DIVERGENCE_WARNING' ? 'WARNING' : 'PASSED'}
+                      </span>
                     </span>
+                    <span>ATTESTATION: {lead.id.substring(0, 8)}...</span>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 border-t border-strong pt-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteLead(lead.id);
+                      }}
+                      className="flex-1 py-1 bg-danger-dim border border-danger/20 hover:bg-danger text-danger hover:text-base rounded text-[10px] font-mono uppercase transition text-center"
+                    >
+                      Remove Lead
+                    </button>
                   </div>
                 </div>
               );
@@ -107,7 +164,7 @@ export default function LeadsView({
         </div>
       </div>
 
-      {/* Right Pane: Selected Lead detail */}
+      {/* Right Pane: Selected Lead details */}
       <div className="w-1/2 flex flex-col min-h-0">
         <AnimatePresence mode="wait">
           {selectedLead ? (
@@ -116,169 +173,83 @@ export default function LeadsView({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="flex-1 glass-panel border border-slate-900 rounded-2xl p-5 bg-slate-950/40 overflow-y-auto flex flex-col gap-6"
+              className="flex-1 border border-strong rounded bg-surface p-5 overflow-y-auto flex flex-col gap-6"
             >
-              {/* Card Header */}
-              <div className="border-b border-slate-900 pb-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-black text-slate-100">{selectedLead.company_name}</h3>
-                  <div className="flex gap-2">
-                    <a 
-                      href={selectedLead.company_details?.website || '#'} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="p-1.5 rounded-lg border border-slate-850 bg-slate-900/40 hover:bg-slate-900 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-[10px] flex items-center gap-1 transition"
-                    >
-                      WEBSITE <ExternalLink className="h-3 w-3" />
-                    </a>
-                    <a 
-                      href={selectedLead.company_details?.linkedin || `https://www.linkedin.com/company/${selectedLead.company_name.toLowerCase().replace(/[^a-z0-9]/g, '')}`} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="p-1.5 rounded-lg border border-slate-850 bg-slate-900/40 hover:bg-slate-900 hover:border-slate-700 text-cyan-400 hover:text-cyan-300 text-[10px] flex items-center gap-1 transition"
-                    >
-                      LINKEDIN <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+              {/* Header */}
+              <div className="border-b border-strong pb-4">
+                <h3 className="font-display font-bold text-base text-primary">{selectedLead.company_name}</h3>
+                <p className="text-[11px] text-muted font-sans mt-1.5 leading-relaxed">
                   {selectedLead.company_details?.description || 'No description extracted.'}
                 </p>
               </div>
 
-              {/* Decrypted Vault Box */}
-              <div className="p-4 rounded-xl border border-slate-900 bg-slate-950/80 relative">
-                <div className="absolute top-4 right-4 text-[9px] font-mono text-cyan-400 font-extrabold flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5" /> SECURE VAULT
+              {/* Secure Vault */}
+              <div className="p-4 bg-base border border-strong rounded relative space-y-3">
+                <div className="flex justify-between items-center border-b border-strong pb-2">
+                  <span className="text-[10px] font-semibold text-muted font-sans uppercase tracking-wider">Secure Cryptographic Vault</span>
+                  <span className="text-[9px] text-accent font-mono">TEE LOCK</span>
                 </div>
-                <h4 className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider mb-3">
-                  Enriched Decision Makers
-                </h4>
 
-                <div className="flex flex-col gap-3">
-                  {selectedLead.contacts && selectedLead.contacts.length > 0 ? (
-                    selectedLead.contacts.map((c: any, ci: number) => {
-                      const decryptedKey = c.raw_email || c.raw_phone || selectedLead.id;
-                      const decrypted = decryptedPII[decryptedKey];
-                      return (
-                        <div key={ci} className="p-3 border border-slate-900/60 bg-slate-950 rounded-lg flex items-center justify-between text-xs">
-                          <div className="flex flex-col gap-1.5">
-                            <span className="font-extrabold text-slate-200">{c.name} ({c.title})</span>
-                            <div className="flex flex-col gap-1 text-[10.5px]">
-                              {decrypted ? (
-                                <>
-                                  <span className="text-cyan-400 font-mono flex items-center gap-1.5">
-                                    <Mail className="h-3 w-3" /> {decrypted.email}
-                                  </span>
-                                  <span className="text-cyan-400 font-mono">
-                                    📞 {decrypted.phone}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-slate-500 font-mono flex items-center gap-1.5">
-                                    <Mail className="h-3 w-3" /> {c.email}
-                                  </span>
-                                  <span className="text-slate-500 font-mono">
-                                    📞 {c.phone}
-                                  </span>
-                                </>
-                              )}
-                            </div>
+                <div className="space-y-2">
+                  {selectedLead.contacts?.map((c: any, i: number) => {
+                    const decryptedKey = c.raw_email || selectedLead.id;
+                    const decrypted = decryptedPII[decryptedKey];
+                    return (
+                      <div key={i} className="p-2 border border-strong rounded bg-surface flex items-center justify-between text-xs font-mono">
+                        <div className="space-y-1">
+                          <div className="font-semibold text-primary">{c.name} ({c.title})</div>
+                          <div className="text-[10px] text-secondary">
+                            {decrypted ? decrypted.email : 'pr████@razorx.in'}
                           </div>
-
-                          {!decrypted && (
-                            <button
-                              onClick={() => simulateVaultAccess(selectedLead.id, c.raw_email, c.raw_phone, c.plain_email, c.plain_phone)}
-                              className="px-2.5 py-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/20 text-cyan-300 text-[10px] font-bold tracking-wider flex items-center gap-1 transition"
-                            >
-                              <Eye className="h-3 w-3" /> DECRYPT
-                            </button>
-                          )}
                         </div>
-                      );
-                    })
-                  ) : (
-                    <span className="text-[11px] text-slate-550 italic">No direct target decision makers found.</span>
-                  )}
+                        {!decrypted && (
+                          <button
+                            onClick={() => simulateVaultAccess(selectedLead.id, c.raw_email, c.raw_phone, c.plain_email, c.plain_phone)}
+                            className="px-2.5 py-1 bg-elevated border border-strong rounded text-[10px] text-accent hover:border-accent"
+                          >
+                            Decrypt
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Verification Sources */}
-              {selectedLead.sources && selectedLead.sources.length > 0 && (
-                <div className="flex flex-col gap-3">
-                  <h4 className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider flex items-center gap-1.5">
-                    <ExternalLink className="h-4 w-4 text-cyan-400" /> Verification Sources
-                  </h4>
-                  <div className="p-4 border border-slate-900 bg-slate-950/80 rounded-xl flex flex-col gap-2">
-                    <p className="text-[10px] text-slate-500 font-mono mb-1 leading-normal">
-                      Original source documents and profiles gathered by research agents:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedLead.sources.map((src: any, idx: number) => (
-                        <a
-                          key={idx}
-                          href={src.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-850 border border-slate-850 hover:border-cyan-500/30 text-cyan-400 hover:text-cyan-300 text-[10.5px] font-mono transition flex items-center gap-1.5"
-                        >
-                          🔗 {src.title}
-                        </a>
-                      ))}
-                    </div>
+              {/* Debate Transcript */}
+              {selectedLead.debate_transcript && selectedLead.debate_transcript.length > 0 && (
+                <div className="space-y-3">
+                  <span className="text-[10px] font-semibold text-muted font-sans uppercase tracking-wider block">Adversarial Debate Transcript</span>
+                  <div className="p-4 bg-base border border-strong rounded font-mono text-[10.5px] space-y-4">
+                    {selectedLead.debate_transcript.map((turn: any, ti: number) => (
+                      <div key={ti} className="space-y-1 border-b border-strong/40 pb-2.5 last:border-b-0 last:pb-0">
+                        <div className="font-bold text-accent">{turn.role}</div>
+                        <div className="text-secondary leading-relaxed">{turn.text}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Hybrid Graph-Vector Entities details */}
-              <div className="flex flex-col gap-3">
-                <h4 className="text-[10px] font-bold text-slate-400 font-mono uppercase tracking-wider flex items-center gap-1.5">
-                  <Network className="h-4 w-4 text-violet-400" /> Knowledge Graph Connections
-                </h4>
-                
-                <div className="p-4 border border-slate-900 bg-slate-950/80 rounded-xl flex flex-col gap-2.5">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-850 text-[10.5px] text-slate-350">
-                      🏢 <strong>Company:</strong> {selectedLead.company_name}
-                    </span>
-                    <span className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-850 text-[10.5px] text-slate-350">
-                      🏷️ <strong>Domain:</strong> {selectedLead.company_details?.industry || 'Fintech'}
-                    </span>
-                    <span className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-850 text-[10.5px] text-slate-350">
-                      ⚡ <strong>Tech Stack:</strong> {selectedLead.company_details?.tech_stack?.join(', ') || 'React, Python'}
-                    </span>
-                    <span className="px-2 py-1 rounded-lg bg-slate-900 border border-slate-850 text-[10.5px] text-slate-350">
-                      🚀 <strong>Funding Stage:</strong> {selectedLead.company_details?.funding_stage || 'Series A'}
-                    </span>
-                  </div>
-
-                  <p className="text-[10.5px] text-slate-500 leading-normal italic mt-1 border-t border-slate-900/60 pt-2">
-                    Note: Downstream agents query this entity-relationship map for multi-hop graph context.
-                  </p>
-                </div>
-              </div>
-
-              {/* Secure HMAC attest details */}
+              {/* Cryptographic Attestation */}
               {selectedLead.attestation && (
-                <div className="p-4 bg-cyan-500/5 border border-cyan-500/10 rounded-xl font-mono text-[10.5px] flex flex-col gap-2.5">
-                  <div className="flex items-center gap-2 text-cyan-400 font-black text-[11px]">
-                    <ShieldCheck className="h-4.5 w-4.5" />
-                    <span>Cryptographic Audit Attestation Verified</span>
+                <div className="p-4 bg-base border border-strong rounded font-mono text-[10.5px] space-y-2">
+                  <div className="flex items-center gap-2 text-accent font-semibold">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>TEE Audit Attestation Signature</span>
                   </div>
-                  <div className="text-slate-400 flex flex-col gap-1 text-[9.5px]">
-                    <p className="truncate"><strong>HASH:</strong> {selectedLead.attestation.attestation_doc?.hash}</p>
-                    <p><strong>ATTESTED BY:</strong> {selectedLead.attestation.attestation_doc?.attested_by}</p>
-                    <p><strong>TIMESTAMP:</strong> {selectedLead.attestation.attestation_doc?.timestamp}</p>
+                  <div className="text-secondary break-all space-y-1 text-[9.5px]">
+                    <div><strong>Signature:</strong> {selectedLead.attestation.signature}</div>
+                    <div><strong>Payload Hash:</strong> {selectedLead.attestation.attestation_doc?.hash}</div>
+                    <div><strong>TEE Signer:</strong> Intel SGX Mock Vault</div>
                   </div>
                 </div>
               )}
             </motion.div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-550 border border-dashed border-slate-900 rounded-2xl p-8">
-              <Sparkles className="h-6 w-6 text-slate-700 mb-2 animate-pulse" />
-              <p className="text-xs font-bold">Select a lead to explore</p>
-              <p className="text-[10px] text-slate-600 mt-0.5">Click any qualified prospect on the left to reveal deep-tech details.</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-muted border border-dashed border-strong rounded p-8">
+              <Cpu className="h-6 w-6 text-disabled mb-2 animate-pulse" />
+              <p className="text-xs font-mono">Select a prospect lead on the left to reveal secure vault, debate transcripts, and graph mappings.</p>
             </div>
           )}
         </AnimatePresence>

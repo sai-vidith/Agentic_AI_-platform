@@ -28,12 +28,14 @@ class Settings(BaseSettings):
     # Server configuration
     PORT: int = Field(default=8000)
     HOST: str = Field(default="0.0.0.0")
+    FRONTEND_URL: str = Field(default="http://localhost:5173")
     
     # Mock fallback control — set to False in production to surface API errors
     ALLOW_MOCK_FALLBACK: bool = Field(default=False)
     
     # Email notifications settings
     EMAIL_PROVIDER: str = Field(default="mock")
+    EMAIL_DIGEST_MODE: bool = Field(default=True)
     SMTP_HOST: str = Field(default="smtp.gmail.com")
     SMTP_PORT: int = Field(default=587)
     SMTP_USER: str = Field(default="")
@@ -49,10 +51,26 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Ensure TEE Encryption key exists
+# Ensure TEE Encryption key exists and is persistent
 if not settings.TEE_ENCRYPTION_KEY:
-    from cryptography.fernet import Fernet
-    settings.TEE_ENCRYPTION_KEY = Fernet.generate_key().decode()
+    tee_key_file = BASE_DIR / "app" / "mock_data" / ".tee_key"
+    if tee_key_file.exists():
+        try:
+            settings.TEE_ENCRYPTION_KEY = tee_key_file.read_text(encoding="utf-8").strip()
+            print(f"Loaded persistent TEE key from {tee_key_file}")
+        except Exception as e:
+            print(f"Error reading persistent TEE key: {e}")
+    
+    if not settings.TEE_ENCRYPTION_KEY:
+        from cryptography.fernet import Fernet
+        generated_key = Fernet.generate_key().decode()
+        settings.TEE_ENCRYPTION_KEY = generated_key
+        try:
+            tee_key_file.parent.mkdir(parents=True, exist_ok=True)
+            tee_key_file.write_text(generated_key, encoding="utf-8")
+            print(f"Generated new persistent TEE key and saved to {tee_key_file}")
+        except Exception as e:
+            print(f"Failed to save generated TEE key: {e}")
 
 # Business Configurations Path
 BUSINESS_CONFIG_DIR = BASE_DIR / "app" / "business_config"

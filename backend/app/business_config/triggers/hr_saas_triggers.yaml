@@ -8,8 +8,16 @@ triggers:
       - "secured Series A"
       - "Series A funding"
       - "Series A round"
+      - "raises seed"
+      - "raises Series B"
+      - "raises Series C"
+      - "raised seed funding"
+      - "pre-seed raised"
+      - "funding round"
+      - "venture backed"
+      - "invests million"
     score_boost: 25
-    description: "Series A round signals rapid scaling and need for professional HR setup."
+    description: "Series A or other capital injections signal rapid scaling and need for professional HR setup."
   - id: high_growth_hiring
     type: "hiring"
     keywords:
@@ -18,8 +26,15 @@ triggers:
       - "hiring blitz"
       - "expansion plans"
       - "new office"
+      - "hiring for"
+      - "open positions"
+      - "headcount growth"
+      - "hiring engineers"
+      - "expanding team"
+      - "recruiting"
+      - "we are hiring"
     score_boost: 20
-    description: "Intent to hire heavily indicates immediate need for recruitment tooling."
+    description: "Intent to hire heavily indicates immediate need for recruitment and payroll tooling."
   - id: leadership_change_hr
     type: "leadership"
     keywords:
@@ -27,14 +42,23 @@ triggers:
       - "appointed Head of HR"
       - "new VP of People"
       - "joins as VP of HR"
+      - "Director of People"
+      - "Chief People Officer"
+      - "Head of Talent"
+      - "Talent Acquisition Lead"
+      - "joined as VP of People"
     score_boost: 15
     description: "New People Ops leader often reviews and updates the HR tool stack."
-  - id: generic_funding
-    type: "funding"
+  - id: remote_global_expansion
+    type: "expansion"
     keywords:
-      - "raises seed"
-      - "raises Series B"
-      - "funding round"
-      - "venture backed"
+      - "remote first"
+      - "hybrid work"
+      - "work from home"
+      - "distributed team"
+      - "international contractors"
+      - "global hiring"
+      - "switching payroll"
+      - "PEO provider"
     score_boost: 15
-    description: "General funding signals capital injection and impending growth."
+    description: "Global operations and remote work trigger complex compliance and international payroll needs."
