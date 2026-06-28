@@ -63,7 +63,7 @@ class EmailNotifier:
                 with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
                     server.starttls()
                     server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-                    server.sendmail(settings.SMTP_USER, msg["To"], msg.as_string())
+                    server.send_message(msg)
                     
                 print(f"[EmailNotifier] SMTP notification email sent to {msg['To']} for: {subject}")
             except Exception as e:

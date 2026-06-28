@@ -43,34 +43,67 @@ class NewsTool(BaseTool):
         if not search_query:
             return ToolResult(data={"articles": []}, source="news_live")
             
-        if not settings.NEWS_API_KEY or settings.NEWS_API_KEY == "mock_news_key":
-            return await self._get_fallback_mock_data(search_query, params, "NewsAPI key missing")
+        # Try Live NewsAPI first if configured with a real 32-character key
+        api_key = (settings.NEWS_API_KEY or "").strip("\"'")
+        if api_key and api_key != "mock_news_key" and len(api_key) == 32:
+            url = "https://newsapi.org/v2/everything"
+            payload = {
+                "q": search_query,
+                "sortBy": "publishedAt",
+                "pageSize": 5,
+                "apiKey": api_key
+            }
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(url, params=payload, timeout=10.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        articles = []
+                        for item in data.get("articles", []):
+                            articles.append({
+                                "title": item.get("title"),
+                                "content": item.get("description") or item.get("content"),
+                                "source": item.get("source", {}).get("name"),
+                                "company": company or search_query,
+                                "timestamp": item.get("publishedAt"),
+                                "url": item.get("url") or f"https://news.google.com/search?q={item.get('title')}"
+                            })
+                        return ToolResult(data={"articles": articles}, source="news_live_api", latency_ms=int(response.elapsed.total_seconds() * 1000))
+            except Exception as e:
+                print(f"NewsAPI request failed: {e}")
 
-        url = "https://newsapi.org/v2/everything"
-        payload = {
-            "q": search_query,
-            "sortBy": "publishedAt",
-            "pageSize": 5,
-            "apiKey": settings.NEWS_API_KEY
-        }
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, params=payload, timeout=10.0)
-            if response.status_code == 200:
-                data = response.json()
+        # Fallback to keyless/Serper search tool for latest live news (extremely fresh!)
+        try:
+            from app.tools.search_tool import SearchTool
+            search_tool = SearchTool()
+            news_search_query = f"{search_query} company news funding launch 2026"
+            search_result = await search_tool.execute({"query": news_search_query})
+            results = search_result.data.get("results", [])
+            if results:
                 articles = []
-                for item in data.get("articles", []):
+                for item in results:
+                    link = item.get("link", "https://news.google.com")
+                    source = "WebNews"
+                    try:
+                        if "//" in link:
+                            source = link.split("/")[2].replace("www.", "")
+                    except Exception:
+                        pass
+                        
                     articles.append({
                         "title": item.get("title"),
-                        "content": item.get("description") or item.get("content"),
-                        "source": item.get("source", {}).get("name"),
+                        "content": item.get("snippet"),
+                        "source": source,
                         "company": company or search_query,
-                        "timestamp": item.get("publishedAt"),
-                        "url": item.get("url") or f"https://news.google.com/search?q={item.get('title')}"
+                        "timestamp": "2026-06-28T00:00:00Z",
+                        "url": link
                     })
-                return ToolResult(data={"articles": articles}, source="news_live_api", latency_ms=int(response.elapsed.total_seconds() * 1000))
-            else:
-                return await self._get_fallback_mock_data(search_query, params, f"NewsAPI returned status {response.status_code}")
+                return ToolResult(data={"articles": articles}, source="news_live_search", latency_ms=search_result.latency_ms)
+        except Exception as e:
+            print(f"News search tool fallback failed: {e}")
+
+        # Final fallback to mock data
+        return await self._get_fallback_mock_data(search_query, params, "NewsAPI and Search fallback failed")
 
     async def _get_fallback_mock_data(self, company_name: str, params: Dict[str, Any], live_error: str) -> ToolResult:
         # Load from local mock news feed if available

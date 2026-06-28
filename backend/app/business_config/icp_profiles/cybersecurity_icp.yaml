@@ -1,0 +1,36 @@
+domain: cybersecurity
+description: "Ideal Customer Profile for B2B Cybersecurity Tools"
+min_employees: 20
+max_employees: 1000
+target_industries:
+  - "Fintech"
+  - "SaaS"
+  - "Software"
+  - "AI"
+  - "Healthcare Technology"
+  - "E-commerce"
+  - "Web3"
+target_regions:
+  - "India"
+  - "US"
+  - "Europe"
+growth_criteria:
+  min_growth_rate: "15% headcount growth"
+  min_job_postings: 3
+tech_stack_preference:
+  - "AWS"
+  - "GCP"
+  - "Kubernetes"
+  - "Docker"
+  - "GitHub"
+  - "Cloudflare"
+disqualifying_signals:
+  - "declining headcount"
+  - "layoff news"
+  - "on-premises mainframe"
+icp_weighting:
+  employees: 0.2
+  industry: 0.2
+  growth: 0.3
+  tech_stack: 0.1
+  triggers: 0.2

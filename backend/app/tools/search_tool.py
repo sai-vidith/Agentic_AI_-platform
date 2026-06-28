@@ -117,3 +117,73 @@ class SearchTool(BaseTool):
             }
         ]
         return ToolResult(data={"results": results}, source="search_mock", latency_ms=50, error=live_error)
+
+async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
+    """Runs multiple intensive search queries to discover a broad pool of B2B target startups."""
+    import asyncio
+    import json
+    from app.tools.search_tool import SearchTool
+    from app.tools.llm_tool import llm_service
+    
+    search_tool = SearchTool()
+    domain_clean = domain.replace('_', ' ')
+    
+    # 3 highly focused search angles
+    queries = [
+        f"recently funded {domain_clean} startups 2026",
+        f"top rising {domain_clean} companies list 2026",
+        f"new {domain_clean} software products launches 2025 2026"
+    ]
+    
+    # Run in parallel
+    tasks = [search_tool.execute({"query": q}) for q in queries]
+    search_results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Merge and deduplicate links
+    merged_results = []
+    seen_links = set()
+    for res in search_results:
+        if isinstance(res, Exception) or not res or not hasattr(res, "data"):
+            continue
+        for item in res.data.get("results", []):
+            link = item.get("link", "")
+            if link and link not in seen_links:
+                seen_links.add(link)
+                merged_results.append(item)
+                
+    results_text = json.dumps(merged_results[:20]) # Provide up to 20 search result snippets
+    
+    prompt = f"""
+    Analyze the following search results about '{domain_clean}' startups:
+    {results_text}
+    
+    Extract a list of exactly up to {limit} distinct company names that are mentioned as active startups or businesses in this domain.
+    Do not return generic portal names, directories, or news blogs.
+    
+    Respond in JSON format:
+    {{
+      "companies": ["Company A", "Company B"]
+    }}
+    """
+    
+    discovered_companies = []
+    try:
+        response = await llm_service.acompletion(
+            model="nexus-fast",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        content = response.choices[0].message.content
+        data = json.loads(content)
+        discovered_companies = data.get("companies", [])
+    except Exception as e:
+        print(f"Company extraction failed during intensive search: {e}")
+        
+    # Fallback to key targets if empty
+    if not discovered_companies:
+        if domain == "hr_saas":
+            discovered_companies = ["Gusto", "Rippling", "Deel"][:limit]
+        else:
+            discovered_companies = ["Snyk", "Wiz", "SentinelOne"][:limit]
+            
+    return discovered_companies

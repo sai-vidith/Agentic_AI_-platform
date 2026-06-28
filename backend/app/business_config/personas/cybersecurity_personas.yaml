@@ -1,0 +1,31 @@
+domain: cybersecurity
+personas:
+  - id: ciso_head_of_security
+    title_patterns:
+      - "CISO"
+      - "Chief Information Security Officer"
+      - "Head of Security"
+      - "VP of Security"
+      - "Director of Security"
+      - "Security Lead"
+    priority: 1
+    description: "Primary buyer, budget owner, cares about compliance audits, vulnerability management, threat detection."
+  - id: cto_vp_eng
+    title_patterns:
+      - "CTO"
+      - "Chief Technology Officer"
+      - "VP of Engineering"
+      - "Director of Engineering"
+      - "Founder"
+      - "Co-Founder"
+    priority: 2
+    description: "Decision maker in early-stage startups (under 100 employees) without a dedicated security hire; cares about developer productivity, code security, secure defaults."
+  - id: it_compliance_manager
+    title_patterns:
+      - "Head of IT"
+      - "IT Director"
+      - "Compliance Manager"
+      - "Security Compliance Officer"
+      - "Head of Compliance"
+    priority: 3
+    description: "Key influencer, cares about SOC 2 readiness, ISO 27001 auditing, access controls, third-party vendor risks."

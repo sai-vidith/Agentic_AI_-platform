@@ -189,7 +189,8 @@ class EventStore:
 
     # Events CRUD
     def log_event(self, event_data: Dict[str, Any]):
-        event_id = event_data.get("id") or f"evt_{int(datetime.utcnow().timestamp())}"
+        import uuid
+        event_id = event_data.get("id") or f"evt_{uuid.uuid4().hex[:12]}"
         event_data["id"] = event_id
         
         if self.use_fallback:
