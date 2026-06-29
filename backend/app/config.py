@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     SERPER_API_KEY: str = Field(default="mock_serper_key")
     NEWS_API_KEY: str = Field(default="mock_news_key")
     FIRECRAWL_API_KEY: str = Field(default="mock_firecrawl_key")
+    TAVILY_API_KEY: str = Field(default="")
     OPENAI_API_KEY: str = Field(default="")
     OPENAI_API_BASE: str = Field(default="")
     

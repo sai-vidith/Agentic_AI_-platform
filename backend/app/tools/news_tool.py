@@ -75,11 +75,35 @@ class NewsTool(BaseTool):
         # Fallback to keyless/Serper search tool for latest live news (extremely fresh!)
         try:
             from app.tools.search_tool import SearchTool
+            from app.tools.scraper_tool import ScraperTool
+            import asyncio
+            
             search_tool = SearchTool()
+            scraper = ScraperTool()
+            
             news_search_query = f"{search_query} company news funding launch 2026"
             search_result = await search_tool.execute({"query": news_search_query})
             results = search_result.data.get("results", [])
+            
             if results:
+                # Scrape the top 2 news links in parallel to retrieve actual full article text
+                scrape_tasks = []
+                for item in results[:2]:
+                    link = item.get("link")
+                    if link and link.startswith("http") and not any(d in link for d in ["linkedin.com", "crunchbase.com", "sec.gov"]):
+                        scrape_tasks.append(scraper.execute({"url": link}))
+                        
+                scrape_results = await asyncio.gather(*scrape_tasks, return_exceptions=True)
+                
+                # Map URL to scraped page text
+                scraped_pages = {}
+                for s_res in scrape_results:
+                    if s_res and not isinstance(s_res, Exception) and hasattr(s_res, "data"):
+                        url = s_res.data.get("url")
+                        text = s_res.data.get("text", "")
+                        if text and len(text) > 100:
+                            scraped_pages[url] = text[:2000] # Limit to 2000 chars to avoid token bloat
+                
                 articles = []
                 for item in results:
                     link = item.get("link", "https://news.google.com")
@@ -90,17 +114,24 @@ class NewsTool(BaseTool):
                     except Exception:
                         pass
                         
+                    # Use scraped text if available, fallback to short search snippet
+                    content_body = scraped_pages.get(link, item.get("snippet"))
+                        
                     articles.append({
                         "title": item.get("title"),
-                        "content": item.get("snippet"),
+                        "content": content_body,
                         "source": source,
                         "company": company or search_query,
                         "timestamp": "2026-06-28T00:00:00Z",
                         "url": link
                     })
-                return ToolResult(data={"articles": articles}, source="news_live_search", latency_ms=search_result.latency_ms)
+                return ToolResult(
+                    data={"articles": articles},
+                    source="news_live_search_scraped",
+                    latency_ms=search_result.latency_ms
+                )
         except Exception as e:
-            print(f"News search tool fallback failed: {e}")
+            print(f"News search tool fallback with scraping failed: {e}")
 
         # Final fallback to mock data
         return await self._get_fallback_mock_data(search_query, params, "NewsAPI and Search fallback failed")

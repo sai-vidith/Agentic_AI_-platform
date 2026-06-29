@@ -32,6 +32,7 @@ if SQLALCHEMY_AVAILABLE:
         sources = Column(Text, default="[]")
         debate_transcript = Column(Text, default="[]")
         buying_committee = Column(Text, default="[]")
+        domain = Column(String, default="hr_saas")
         created_at = Column(DateTime, default=datetime.utcnow)
         updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -81,6 +82,8 @@ class EventStore:
                             conn.execute(text("ALTER TABLE leads ADD COLUMN debate_transcript TEXT DEFAULT '[]'"))
                         if "buying_committee" not in columns:
                             conn.execute(text("ALTER TABLE leads ADD COLUMN buying_committee TEXT DEFAULT '[]'"))
+                        if "domain" not in columns:
+                            conn.execute(text("ALTER TABLE leads ADD COLUMN domain TEXT DEFAULT 'hr_saas'"))
                 except Exception as ex:
                     print(f"Error altering database tables: {ex}")
                 
@@ -153,6 +156,7 @@ class EventStore:
                 lead.sources = json.dumps(lead_data.get("sources", []))
                 lead.debate_transcript = json.dumps(lead_data.get("debate_transcript", []))
                 lead.buying_committee = json.dumps(lead_data.get("buying_committee", []))
+                lead.domain = lead_data.get("domain", "hr_saas")
                 lead.updated_at = datetime.utcnow()
                 session.commit()
 
@@ -208,6 +212,7 @@ class EventStore:
             "sources": json.loads(lead.sources) if getattr(lead, 'sources', None) else [],
             "debate_transcript": json.loads(lead.debate_transcript) if getattr(lead, 'debate_transcript', None) else [],
             "buying_committee": json.loads(lead.buying_committee) if getattr(lead, 'buying_committee', None) else [],
+            "domain": getattr(lead, 'domain', 'hr_saas') or 'hr_saas',
             "created_at": lead.created_at.isoformat(),
             "updated_at": lead.updated_at.isoformat()
         }

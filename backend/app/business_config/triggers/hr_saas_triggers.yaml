@@ -16,6 +16,8 @@ triggers:
       - "funding round"
       - "venture backed"
       - "invests million"
+      - "secured equity"
+      - "capital growth round"
     score_boost: 25
     description: "Series A or other capital injections signal rapid scaling and need for professional HR setup."
   - id: high_growth_hiring
@@ -33,8 +35,11 @@ triggers:
       - "expanding team"
       - "recruiting"
       - "we are hiring"
+      - "mass recruiting"
+      - "doubling engineering team"
+      - "hiring spree"
     score_boost: 20
-    description: "Intent to hire heavily indicates immediate need for recruitment and payroll tooling."
+    description: "Intent to hire heavily indicates immediate need for recruitment, payroll, and benefits tooling."
   - id: leadership_change_hr
     type: "leadership"
     keywords:
@@ -47,6 +52,9 @@ triggers:
       - "Head of Talent"
       - "Talent Acquisition Lead"
       - "joined as VP of People"
+      - "joins as CHRO"
+      - "Chief Human Resources Officer"
+      - "VP of Employee Success"
     score_boost: 15
     description: "New People Ops leader often reviews and updates the HR tool stack."
   - id: remote_global_expansion
@@ -60,5 +68,9 @@ triggers:
       - "global hiring"
       - "switching payroll"
       - "PEO provider"
+      - "global payroll provider"
+      - "Employer of Record"
+      - "EOR partner"
+      - "expands remote team"
     score_boost: 15
     description: "Global operations and remote work trigger complex compliance and international payroll needs."

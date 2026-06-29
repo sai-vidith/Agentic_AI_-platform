@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Mail, Eye, Network, Check, X, ShieldAlert, Cpu } from 'lucide-react';
+import { ShieldCheck, Mail, Eye, Network, Check, X, ShieldAlert, Cpu, Linkedin, Globe, ExternalLink } from 'lucide-react';
 
 interface LeadsViewProps {
   leads: any[];
@@ -20,8 +20,18 @@ export default function LeadsView({
   handleDeleteLead
 }: LeadsViewProps) {
   const [expandedIcpId, setExpandedIcpId] = useState<string | null>(null);
+  const [domainFilter, setDomainFilter] = useState<'all' | 'hr_saas' | 'cybersecurity'>('all');
   
-  const qualifiedLeads = leads.filter(l => l.status === 'approved' || l.icp_score >= 70);
+  const qualifiedLeads = leads.filter(l => {
+    const isQual = l.status === 'approved' || l.icp_score >= 70;
+    if (!isQual) return false;
+    if (domainFilter === 'all') return true;
+    return l.domain === domainFilter;
+  });
+
+  const totalAllCount = leads.filter(l => l.status === 'approved' || l.icp_score >= 70).length;
+  const hrSaasCount = leads.filter(l => (l.status === 'approved' || l.icp_score >= 70) && l.domain === 'hr_saas').length;
+  const cyberCount = leads.filter(l => (l.status === 'approved' || l.icp_score >= 70) && l.domain === 'cybersecurity').length;
 
   const toggleIcpBreakdown = (e: React.MouseEvent, leadId: string) => {
     e.stopPropagation();
@@ -35,6 +45,34 @@ export default function LeadsView({
         <div className="border-b border-strong pb-3">
           <h2 className="font-display font-bold text-lg text-primary uppercase tracking-tight">QUALIFIED LEADS VAULT</h2>
           <p className="text-[11px] text-muted font-sans mt-0.5">Explore discovered leads that successfully cleared the target scoring threshold.</p>
+          
+          {/* Domain Filter Buttons */}
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => setDomainFilter('all')}
+              className={`px-3 py-1 rounded text-[9px] font-mono font-bold uppercase transition ${
+                domainFilter === 'all' ? 'bg-accent text-base' : 'bg-surface border border-strong text-secondary hover:border-accent'
+              }`}
+            >
+              All Domains ({totalAllCount})
+            </button>
+            <button
+              onClick={() => setDomainFilter('hr_saas')}
+              className={`px-3 py-1 rounded text-[9px] font-mono font-bold uppercase transition ${
+                domainFilter === 'hr_saas' ? 'bg-accent text-base' : 'bg-surface border border-strong text-secondary hover:border-accent'
+              }`}
+            >
+              HR SaaS ({hrSaasCount})
+            </button>
+            <button
+              onClick={() => setDomainFilter('cybersecurity')}
+              className={`px-3 py-1 rounded text-[9px] font-mono font-bold uppercase transition ${
+                domainFilter === 'cybersecurity' ? 'bg-accent text-base' : 'bg-surface border border-strong text-secondary hover:border-accent'
+              }`}
+            >
+              Cybersecurity ({cyberCount})
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 min-h-0">
@@ -59,7 +97,14 @@ export default function LeadsView({
                   {/* Top Row: Name, ICP, Status */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="font-display font-bold text-sm text-primary">{lead.company_name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-display font-bold text-sm text-primary">{lead.company_name}</h3>
+                        {lead.status === 'approved' && (
+                          <span className="px-1.5 py-0.5 bg-success-dim border border-success/40 text-success text-[8px] font-mono uppercase rounded flex items-center gap-1 font-bold">
+                            <Check className="w-2 h-2" /> Approved
+                          </span>
+                        )}
+                      </div>
                       <div className="text-[10px] text-muted font-mono mt-0.5">
                         {lead.company_details?.industry || 'Fintech'} · {lead.company_details?.hq || 'Remote'} · {lead.company_details?.founded || 'Series A'}
                       </div>
@@ -177,8 +222,24 @@ export default function LeadsView({
             >
               {/* Header */}
               <div className="border-b border-strong pb-4">
-                <h3 className="font-display font-bold text-base text-primary">{selectedLead.company_name}</h3>
-                <p className="text-[11px] text-muted font-sans mt-1.5 leading-relaxed">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-bold text-base text-primary">{selectedLead.company_name}</h3>
+                </div>
+                <div className="flex items-center gap-2 mt-1.5 mb-2.5">
+                  {selectedLead.company_details?.website && (
+                    <a href={selectedLead.company_details.website} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 border border-strong rounded bg-elevated hover:border-muted text-[10px] text-muted flex items-center gap-1 transition-colors">
+                      <Globe className="w-3 h-3 text-accent" />
+                      <span>Website</span>
+                    </a>
+                  )}
+                  {selectedLead.company_details?.linkedin && (
+                    <a href={selectedLead.company_details.linkedin} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 border border-strong rounded bg-elevated hover:border-muted text-[10px] text-muted flex items-center gap-1 transition-colors">
+                      <Linkedin className="w-3 h-3 text-accent" />
+                      <span>LinkedIn</span>
+                    </a>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted font-sans leading-relaxed">
                   {selectedLead.company_details?.description || 'No description extracted.'}
                 </p>
               </div>
@@ -197,19 +258,28 @@ export default function LeadsView({
                     return (
                       <div key={i} className="p-2 border border-strong rounded bg-surface flex items-center justify-between text-xs font-mono">
                         <div className="space-y-1">
-                          <div className="font-semibold text-primary">{c.name} ({c.title})</div>
+                          <div className="font-semibold text-primary">
+                            <span>{c.name} ({c.title})</span>
+                          </div>
                           <div className="text-[10px] text-secondary">
                             {decrypted ? decrypted.email : 'pr████@razorx.in'}
                           </div>
                         </div>
-                        {!decrypted && (
-                          <button
-                            onClick={() => simulateVaultAccess(selectedLead.id, c.raw_email, c.raw_phone, c.plain_email, c.plain_phone)}
-                            className="px-2.5 py-1 bg-elevated border border-strong rounded text-[10px] text-accent hover:border-accent"
-                          >
-                            Decrypt
-                          </button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {c.linkedin && (
+                            <a href={c.linkedin} target="_blank" rel="noopener noreferrer" className="p-1 border border-strong rounded bg-elevated hover:border-muted text-muted hover:text-primary transition-colors" title="View LinkedIn Profile">
+                              <Linkedin className="w-3.5 h-3.5 text-accent" />
+                            </a>
+                          )}
+                          {!decrypted && (
+                            <button
+                              onClick={() => simulateVaultAccess(selectedLead.id, c.raw_email, c.raw_phone, c.plain_email, c.plain_phone)}
+                              className="px-2.5 py-1 bg-elevated border border-strong rounded text-[10px] text-accent hover:border-accent"
+                            >
+                              Decrypt
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -231,6 +301,45 @@ export default function LeadsView({
                 </div>
               )}
 
+              {/* Research Sources & Trust Verification */}
+              {selectedLead.sources && selectedLead.sources.length > 0 && (
+                <div className="space-y-2.5">
+                  <span className="text-[10px] font-semibold text-muted font-sans uppercase tracking-wider block">Research Citations ({selectedLead.sources.length})</span>
+                  
+                  {/* Perplexity-style horizontal citation links */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedLead.sources.map((s: any, idx: number) => {
+                      const isCorrect = s.status !== 'Wrong';
+                      let domainName = 'link';
+                      try {
+                        domainName = new URL(s.url).hostname.replace('www.', '');
+                      } catch (e) {}
+                      
+                      return (
+                        <a
+                          key={idx}
+                          href={s.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`${s.title} - ${isCorrect ? 'Verified' : 'Stale/Unverified'}\nAudit: ${s.reason || 'Verified'}`}
+                          className={`px-2.5 py-1 border rounded text-[10px] font-mono flex items-center gap-1.5 transition-all hover:scale-[1.02] cursor-pointer ${
+                            isCorrect 
+                              ? 'border-success/30 bg-success-dim hover:border-success/60 text-success' 
+                              : 'border-danger/30 bg-danger-dim hover:border-danger/60 text-danger'
+                          }`}
+                        >
+                          <span className="w-3.5 h-3.5 rounded-full bg-surface border border-strong flex items-center justify-center text-[9px] font-sans font-bold text-muted">
+                            {idx + 1}
+                          </span>
+                          <span className="truncate max-w-[110px]">{domainName}</span>
+                          <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Cryptographic Attestation */}
               {selectedLead.attestation && (
                 <div className="p-4 bg-base border border-strong rounded font-mono text-[10.5px] space-y-2">
@@ -243,6 +352,42 @@ export default function LeadsView({
                     <div><strong>Payload Hash:</strong> {selectedLead.attestation.attestation_doc?.hash}</div>
                     <div><strong>TEE Signer:</strong> Intel SGX Mock Vault</div>
                   </div>
+                </div>
+              )}
+
+              {/* Outreach Campaign Section */}
+              {selectedLead.outreach_template && (
+                <div className="space-y-3 pt-2 border-t border-strong">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-semibold text-muted font-sans uppercase tracking-wider">Outreach Message Draft</span>
+                    {selectedLead.status === 'approved' && (
+                      <span className="px-1.5 py-0.2 bg-success/20 border border-success/40 text-success text-[8px] font-mono uppercase rounded">Campaign Dispatched</span>
+                    )}
+                  </div>
+                  <div className="p-3 bg-base border border-strong rounded font-mono text-[10.5px] leading-relaxed text-secondary select-all whitespace-pre-wrap">
+                    {selectedLead.outreach_template}
+                  </div>
+                  
+                  {/* Send Mail Trigger Button */}
+                  <button
+                    onClick={() => {
+                      const firstContact = selectedLead.contacts?.[0];
+                      if (firstContact) {
+                        const email = decryptedPII[firstContact.raw_email || selectedLead.id]?.email || firstContact.plain_email || firstContact.email || '';
+                        const lines = selectedLead.outreach_template.split('\n');
+                        const subjectLine = lines.find((line: string) => line.toLowerCase().startsWith('subject:')) || '';
+                        const subject = subjectLine ? subjectLine.replace(/subject:/i, '').trim() : `Outreach to ${selectedLead.company_name}`;
+                        const bodyLines = lines.filter((line: string) => !line.toLowerCase().startsWith('subject:'));
+                        const body = bodyLines.join('\n').trim();
+                        
+                        const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                        window.open(mailtoUrl, '_self');
+                      }
+                    }}
+                    className="w-full py-2 bg-accent hover:bg-[#d4f950] text-slate-950 hover:scale-[1.01] transition font-sans font-bold uppercase text-[11px] rounded flex justify-center items-center gap-1.5"
+                  >
+                    <Mail className="w-4 h-4" /> Send Outreach via Mail Client
+                  </button>
                 </div>
               )}
             </motion.div>

@@ -39,20 +39,30 @@ class ICPMatcherAgent(BaseNexusAgent):
             print(f"[ICPMatcher] Feedback loop query failed: {ex}")
             
         prompt = f"""
-        Evaluate if this company matches our Ideal Customer Profile (ICP).
+        You are a senior B2B Sales Ops Analyst. Evaluate if the company '{company_name}' matches our Ideal Customer Profile (ICP).
         
         Company Profile:
-        {json.dumps(company_details)}
+        {json.dumps(company_details, indent=2)}
         
         ICP Targeting Guidelines:
-        {json.dumps(icp_rules)}
+        {json.dumps(icp_rules, indent=2)}
         {historical_context}
         
-        Calculate a final compatibility score (0 to 100) and provide a short justification.
-        Respond strictly in JSON format:
+        Evaluate the company against the following 4 weighted scoring dimensions:
+        1. Industry Alignment (Weight: 30%): Does the business category match our target vertical?
+        2. Firmographic Scale (Weight: 20%): Do headcount and founding year align with our scale targets?
+        3. Intent & Trigger Urgency (Weight: 30%): Capital round injections, active hiring listings, new offices, or leadership hires.
+        4. Tech Stack Compatibility (Weight: 20%): Does their active software toolstack represent high compliance needs?
+        
+        Calculate individual scores (0 to 100) for each dimension, then compute the final weighted score.
+        Respond strictly in JSON format matching this structure:
         {{
-          "score": 85,
-          "justification": "Company matches target size and industry, and shows high-growth hiring signals."
+          "industry_score": integer,
+          "scale_score": integer,
+          "intent_score": integer,
+          "tech_score": integer,
+          "score": integer (weighted sum),
+          "justification": "Provide a precise, 2-3 sentence analytical breakdown detailing the scores."
         }}
         """
         
@@ -62,7 +72,13 @@ class ICPMatcherAgent(BaseNexusAgent):
         await notify_agent_event(WSEventTypes.AGENT_COMPLETED, self.name, target=company_name, data={"output": data})
         return {
             "score": data.get("score", 0),
-            "justification": data.get("justification", "")
+            "justification": data.get("justification", ""),
+            "scores_breakdown": {
+                "industry": data.get("industry_score", 0),
+                "scale": data.get("scale_score", 0),
+                "intent": data.get("intent_score", 0),
+                "tech": data.get("tech_score", 0)
+            }
         }
 
     async def execute_with_fallback(self, task_input: Dict[str, Any]) -> Dict[str, Any]:

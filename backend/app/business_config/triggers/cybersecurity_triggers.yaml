@@ -15,8 +15,11 @@ triggers:
       - "HITRUST certified"
       - "SOC 2 Type II"
       - "SOC2 Type II"
+      - "DORA compliance"
+      - "NIS2 readiness"
+      - "data governance audit"
     score_boost: 25
-    description: "Startups preparing for SOC 2 or ISO audits have high immediate demand for security controls."
+    description: "Startups preparing for SOC 2, ISO, DORA, or GDPR audits have high immediate demand for security controls."
   - id: series_a_funding
     type: "funding"
     keywords:
@@ -29,8 +32,12 @@ triggers:
       - "seed round closed"
       - "funding round raised"
       - "raises millions"
+      - "Series C closed"
+      - "pre-seed funded"
+      - "venture capital raised"
+      - "secured capital"
     score_boost: 20
-    description: "Post-Series A funding requires startups to build secure infrastructure to sell to enterprise accounts."
+    description: "Post-funding injections require startups to quickly build secure infrastructure to sell to enterprise accounts."
   - id: security_leadership_change
     type: "leadership"
     keywords:
@@ -42,6 +49,9 @@ triggers:
       - "Chief Information Security Officer"
       - "Security Architect joined"
       - "Director of InfoSec"
+      - "Head of Cybersecurity appointed"
+      - "joins as Chief Security Officer"
+      - "appointed Security Lead"
     score_boost: 20
     description: "A new CISO or security lead typically initiates tool audits and implements new security vendor solutions."
   - id: global_expansion
@@ -55,5 +65,30 @@ triggers:
       - "geographical expansion"
       - "sovereign cloud"
       - "multi-region deployment"
+      - "cross-border expansion"
+      - "opening APAC headquarters"
     score_boost: 15
-    description: "Entering new geographies triggers strict regulatory requirements (GDPR, CCPA, HIPAA) requiring security audits."
+    description: "Entering new geographies triggers strict regulatory requirements requiring security audits."
+  - id: security_incident
+    type: "incident"
+    keywords:
+      - "data breach"
+      - "ransomware attack"
+      - "critical vulnerability"
+      - "security incident"
+      - "database leak"
+      - "credentials leaked"
+      - "zero day exploit"
+      - "patching flaw"
+    score_boost: 30
+    description: "Recent security incidents or vulnerabilities require immediate remediation and protective software deployments."
+  - id: security_hiring_spree
+    type: "hiring"
+    keywords:
+      - "hiring security engineer"
+      - "infosec job opening"
+      - "expanding security team"
+      - "hiring penetration tester"
+      - "security operations center analyst"
+    score_boost: 15
+    description: "Hiring security engineers indicates scaling infosec requirements and system auditing."

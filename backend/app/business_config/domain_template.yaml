@@ -1,0 +1,89 @@
+# ==============================================================================
+# NEXUSAI NEW DOMAIN CONFIGURATION TEMPLATE
+# ==============================================================================
+# Use this single template file to configure a new search domain (e.g. Fintech, Edtech).
+# To activate a new domain, copy this file, fill out the values, and distribute the
+# sections to their respective folders: app/business_config/icp_profiles/, 
+# app/business_config/personas/, and app/business_config/triggers/.
+# ==============================================================================
+
+# SECTION 1: ICP RULES
+# Save this block to: app/business_config/icp_profiles/<domain_name>_icp.yaml
+icp_rules:
+  domain: "new_domain_name"       # e.g., fintech, healthtech
+  name: "New Domain Description"  # e.g., B2B Payments & Ledgering
+  
+  target_industry:
+    - "Fintech"
+    - "Neobanking"
+    - "Payfac"
+    
+  company_size:
+    min_headcount: 10
+    max_headcount: 500
+    preferred_min_headcount: 30
+    
+  geographies:
+    - "United States"
+    - "Canada"
+    - "United Kingdom"
+    
+  target_technologies:
+    - "Stripe"
+    - "Adyen"
+    - "Ledger"
+    
+  # Specific trigger word categories that multiply qualification scores
+  intent_signals:
+    funding:
+      weight: 25
+      indicators: ["Series A", "Series B", "seed raised", "equity funding"]
+    hiring:
+      weight: 20
+      indicators: ["hiring sales director", "growing ledger team", "expanding engineers"]
+    growth:
+      weight: 15
+      indicators: ["new office launch", "international expansion", "acquiring"]
+
+# ==============================================================================
+
+# SECTION 2: PERSONA GUIDELINES
+# Save this block to: app/business_config/personas/<domain_name>_personas.yaml
+personas:
+  domain: "new_domain_name"
+  
+  target_roles:
+    - role: "Decision Maker"
+      title_keywords: ["VP of Finance", "Chief Financial Officer", "CFO", "Head of Finance"]
+      pitch_angle: "Present the ROI metrics, ledger reconciliation efficiency, and cost reductions."
+      priority: 1
+      
+    - role: "Influencer"
+      title_keywords: ["Fintech Architect", "Director of Product", "Lead Ledger Engineer"]
+      pitch_angle: "Focus on REST API capabilities, multi-currency ledger speeds, and webhook durability."
+      priority: 2
+      
+    - role: "Gatekeeper"
+      title_keywords: ["Finance Manager", "Accounting Operations Manager"]
+      pitch_angle: "Highlight CSV exports, automated report compiling, and visual ledger dashboards."
+      priority: 3
+
+# ==============================================================================
+
+# SECTION 3: INTENT TRIGGER PHRASES
+# Save this block to: app/business_config/triggers/<domain_name>_triggers.yaml
+triggers:
+  domain: "new_domain_name"
+  
+  # Search keywords used by the Autonomous Scraper to identify candidates from funding/hiring databases
+  discovery_keywords:
+    - "fintech startup series A funding"
+    - "neobank hiring ledger engineer"
+    - "fintech expands international payments"
+    
+  # Trigger phrases indicating immediate buy readiness
+  buying_intent_indicators:
+    - "reconciling payments manually"
+    - "migrating ledger platform"
+    - "payments volume growth spike"
+    - "integrating stripe alternative"

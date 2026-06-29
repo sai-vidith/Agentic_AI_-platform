@@ -132,12 +132,40 @@ class EnrichmentTool(BaseTool):
                 if not linkedin_url:
                     linkedin_url = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
 
-                # 3. Retrieve general web summary data
-                with DDGS() as ddgs:
-                    results = [r for r in ddgs.text(f"{company_name} company overview industry headquarters", max_results=3)]
-                summary = " ".join([r.get("body", "") for r in results])
+                # 3. Try to scrape the company homepage via Firecrawl
+                from app.config import settings
+                fc_key = (settings.FIRECRAWL_API_KEY or "").strip('"\'')
+                markdown_content = None
+                if fc_key and fc_key != "mock_firecrawl_key" and len(fc_key) > 5:
+                    try:
+                        print(f"[EnrichmentTool] Scraping homepage via Firecrawl: {website}")
+                        api_url = "https://api.firecrawl.dev/v1/scrape"
+                        headers = {
+                            "Authorization": f"Bearer {fc_key}",
+                            "Content-Type": "application/json"
+                        }
+                        payload = {
+                            "url": website,
+                            "formats": ["markdown"]
+                        }
+                        response = requests.post(api_url, json=payload, headers=headers, timeout=12.0)
+                        if response.status_code == 200:
+                            res_data = response.json()
+                            if res_data.get("success"):
+                                markdown_content = res_data.get("data", {}).get("markdown", "")
+                    except Exception as fcex:
+                        print(f"[EnrichmentTool] Firecrawl scrape failed: {fcex}")
+
+                # 4. Retrieve general web summary data as fallback
+                summary = ""
+                try:
+                    with DDGS() as ddgs:
+                        results = [r for r in ddgs.text(f"{company_name} company overview industry headquarters", max_results=3)]
+                    summary = " ".join([r.get("body", "") for r in results])
+                except Exception as e:
+                    print(f"[EnrichmentTool] DDG search fallback error: {e}")
                 
-                # 4. Search leadership/executives
+                # 5. Search leadership/executives
                 contacts = []
                 try:
                     with DDGS() as ddgs:
@@ -166,21 +194,11 @@ class EnrichmentTool(BaseTool):
                     print(f"[EnrichmentTool] Contact search error: {e}")
                 
                 return {
-                    "company_data": {
-                        "name": company_name,
-                        "industry": "SaaS / Software",
-                        "employees": 250,
-                        "founded": 2015,
-                        "hq": "San Francisco, CA",
-                        "tech_stack": ["React", "Node.js", "AWS", "Next.js"],
-                        "current_hr_tool": "Workday",
-                        "recent_funding": {"round": "Series D", "amount_usd": 150000000, "date": "2024-01-01"},
-                        "growth_rate": "High (Hypergrowth)",
-                        "live_summary": summary[:1000],
-                        "website": website,
-                        "linkedin": linkedin_url
-                    },
-                    "contacts_data": contacts
+                    "website": website,
+                    "linkedin_url": linkedin_url,
+                    "summary": summary,
+                    "contacts": contacts,
+                    "markdown_content": markdown_content
                 }, None
             except Exception as e:
                 return None, str(e)
@@ -188,12 +206,77 @@ class EnrichmentTool(BaseTool):
         live_data, live_error = await loop.run_in_executor(None, _fetch_live)
         
         if live_data:
+            website = live_data["website"]
+            linkedin_url = live_data["linkedin_url"]
+            summary = live_data["summary"]
+            contacts = live_data["contacts"]
+            markdown_content = live_data["markdown_content"]
+            
+            company_data = {
+                "name": company_name,
+                "industry": "SaaS / Software",
+                "employees": 250,
+                "founded": 2015,
+                "hq": "San Francisco, CA",
+                "tech_stack": ["React", "Node.js", "AWS", "Next.js"],
+                "current_hr_tool": "Workday",
+                "recent_funding": {"round": "Series D", "amount_usd": 150000000, "date": "2024-01-01"},
+                "growth_rate": "High (Hypergrowth)",
+                "live_summary": summary[:1000] if summary else "No corporate summary found.",
+                "website": website,
+                "linkedin": linkedin_url
+            }
+            
+            # If Firecrawl provided raw markdown, use LLM to extract company details
+            if markdown_content:
+                from app.tools.llm_tool import llm_service
+                try:
+                    prompt = f"""
+                    You are a senior Business Intelligence Specialist.
+                    Review the scraped homepage markdown from the company '{company_name}':
+                    
+                    ---
+                    {markdown_content[:6000]}
+                    ---
+                    
+                    Extract the following corporate details:
+                    - Corporate description (2 sentences max)
+                    - Active tech stack / software tools used (e.g. AWS, React, Snowflake, Okta, etc.)
+                    - Business vertical/industry (e.g. Cybersecurity, Payroll SaaS, E-commerce)
+                    - Headquarters location (City, Country)
+                    
+                    Respond strictly in JSON format matching this structure:
+                    {{
+                      "description": "...",
+                      "tech_stack": ["tool1", "tool2"],
+                      "industry": "...",
+                      "hq": "City, Country"
+                    }}
+                    """
+                    response = await llm_service.acompletion(
+                        model="nexus-fast",
+                        messages=[
+                            {"role": "system", "content": "You are a strict data scientist. Output JSON only."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        response_format={"type": "json_object"}
+                    )
+                    parsed = json.loads(response.choices[0].message.content)
+                    company_data.update({
+                        "live_summary": parsed.get("description", company_data["live_summary"]),
+                        "tech_stack": parsed.get("tech_stack", company_data["tech_stack"]),
+                        "industry": parsed.get("industry", company_data["industry"]),
+                        "hq": parsed.get("hq", company_data["hq"])
+                    })
+                except Exception as parse_ex:
+                    print(f"[EnrichmentTool] LLM markdown parsing failed: {parse_ex}")
+                    
             return ToolResult(
                 data={
-                    "company": live_data["company_data"],
-                    "contacts": live_data["contacts_data"]
+                    "company": company_data,
+                    "contacts": contacts
                 },
-                source="enrichment_live_search",
+                source="enrichment_live_search" if not markdown_content else "enrichment_live_firecrawl",
                 latency_ms=2500
             )
 

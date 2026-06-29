@@ -34,6 +34,36 @@ class SearchTool(BaseTool):
         if not query:
             return ToolResult(data={"results": []}, source="search_live")
             
+        # Try Tavily Search first if available (Tavily has a free tier of 1,000 requests/month)
+        tavily_key = (settings.TAVILY_API_KEY or "").strip('"\'')
+        if tavily_key and tavily_key != "mock_tavily_key" and len(tavily_key) > 5:
+            try:
+                url = "https://api.tavily.com/search"
+                payload = {
+                    "api_key": tavily_key,
+                    "query": query,
+                    "search_depth": "basic",
+                    "max_results": 5
+                }
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(url, json=payload, timeout=10.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        results = []
+                        for item in data.get("results", []):
+                            results.append({
+                                "title": item.get("title"),
+                                "snippet": item.get("content"),
+                                "link": item.get("url")
+                            })
+                        return ToolResult(
+                            data={"results": results},
+                            source="search_live_tavily",
+                            latency_ms=int(response.elapsed.total_seconds() * 1000)
+                        )
+            except Exception as e:
+                print(f"Tavily search failed, trying Serper fallback: {e}")
+
         # Try Serper first if available
         if settings.SERPER_API_KEY and settings.SERPER_API_KEY != "mock_serper_key":
             try:
@@ -128,11 +158,13 @@ async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
     search_tool = SearchTool()
     domain_clean = domain.replace('_', ' ')
     
-    # 3 highly focused search angles
+    # 5 highly focused search angles targeting both global and Indian/domestic startups
     queries = [
         f"recently funded {domain_clean} startups 2026",
         f"top rising {domain_clean} companies list 2026",
-        f"new {domain_clean} software products launches 2025 2026"
+        f"new {domain_clean} software products launches 2025 2026",
+        f"top {domain_clean} startups in India 2025 2026",
+        f"recently funded Indian B2B {domain_clean} companies"
     ]
     
     # Run in parallel
@@ -151,13 +183,14 @@ async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
                 seen_links.add(link)
                 merged_results.append(item)
                 
-    results_text = json.dumps(merged_results[:20]) # Provide up to 20 search result snippets
+    results_text = json.dumps(merged_results[:25]) # Provide up to 25 search result snippets
     
     prompt = f"""
     Analyze the following search results about '{domain_clean}' startups:
     {results_text}
     
-    Extract a list of exactly up to {limit} distinct company names that are mentioned as active startups or businesses in this domain.
+    Extract a list of exactly up to {limit} distinct company names that are mentioned as active startups or businesses in this domain. 
+    Ensure you include a mix of leading global startups and prominent domestic/Indian startups where applicable.
     Do not return generic portal names, directories, or news blogs.
     
     Respond in JSON format:
@@ -179,11 +212,11 @@ async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
     except Exception as e:
         print(f"Company extraction failed during intensive search: {e}")
         
-    # Fallback to key targets if empty
+    # Fallback to key targets including domestic/Indian startups if empty
     if not discovered_companies:
         if domain == "hr_saas":
-            discovered_companies = ["Gusto", "Rippling", "Deel"][:limit]
+            discovered_companies = ["Rippling", "Keka HR", "Darwinbox", "Deel"][:limit]
         else:
-            discovered_companies = ["Snyk", "Wiz", "SentinelOne"][:limit]
+            discovered_companies = ["Wiz", "Securden", "Armis", "Snyk"][:limit]
             
     return discovered_companies

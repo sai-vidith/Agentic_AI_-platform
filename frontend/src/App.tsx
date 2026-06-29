@@ -302,82 +302,105 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleGlobalKeys);
   }, []);
 
-  // WebSockets setup
+  // WebSockets setup with automatic reconnection
   useEffect(() => {
-    const ws = new WebSocket(WS_BASE);
-    wsRef.current = ws;
+    let ws: WebSocket;
+    let reconnectTimeout: any;
 
-    ws.onmessage = (event) => {
-      const evt = JSON.parse(event.data);
-      console.log('[WebSocket] received event:', evt);
+    const connect = () => {
+      console.log('[WebSocket] Connecting...');
+      ws = new WebSocket(WS_BASE);
+      wsRef.current = ws;
 
-      // Track active agents for Layer pulsing
-      if (evt.agent && evt.type === 'agent_thinking') {
-        setActiveAgent(evt.agent);
-        setActiveAgentState('thinking');
-      } else if (evt.agent && evt.type === 'agent_completed') {
-        setActiveAgent(evt.agent);
-        setActiveAgentState('completed');
-      }
+      ws.onopen = () => {
+        console.log('[WebSocket] Connected successfully!');
+      };
 
-      // Update thought stream log
-      setAgentFeed((prev) => [
-        {
-          time: new Date().toLocaleTimeString(),
-          type: evt.type === 'agent_failed' ? 'error' : evt.type === 'agent_completed' ? 'success' : 'info',
-          message: `[${evt.agent || 'SYSTEM'}] ${evt.type === 'agent_thinking' ? 'Executing core logic...' : evt.data?.chunk || evt.message || 'Updated status'}`
-        },
-        ...prev
-      ]);
+      ws.onmessage = (event) => {
+        const evt = JSON.parse(event.data);
+        console.log('[WebSocket] received event:', evt);
 
-      // Update React Flow nodes states
-      if (evt.agent && evt.type) {
-        let status = 'idle';
-        if (evt.type === 'agent_thinking') status = 'thinking';
-        else if (evt.type === 'agent_completed') status = 'completed';
-        else if (evt.type === 'agent_failed') status = 'failed';
-        else if (evt.type === 'agent_retrying') status = 'retrying';
-        else if (evt.type === 'agent_recovered') status = 'recovered';
+        // Track active agents for Layer pulsing
+        if (evt.agent && evt.type === 'agent_thinking') {
+          setActiveAgent(evt.agent);
+          setActiveAgentState('thinking');
+        } else if (evt.agent && evt.type === 'agent_completed') {
+          setActiveAgent(evt.agent);
+          setActiveAgentState('completed');
+        }
 
-        updateNodeStatus(evt.agent, status, evt.data?.output);
-      }
+        // Update thought stream log
+        setAgentFeed((prev) => [
+          {
+            time: new Date().toLocaleTimeString(),
+            type: evt.type === 'agent_failed' ? 'error' : evt.type === 'agent_completed' ? 'success' : 'info',
+            message: `[${evt.agent || 'SYSTEM'}] ${evt.type === 'agent_thinking' ? 'Executing core logic...' : evt.data?.chunk || evt.message || 'Updated status'}`
+          },
+          ...prev
+        ]);
 
-      // Update live thought texts
-      if (evt.agent && evt.type === 'agent_reasoning' && evt.data?.chunk) {
-        setStreamingThoughts((prev) => ({
-          ...prev,
-          [evt.agent]: (prev[evt.agent] || '') + evt.data.chunk
-        }));
-      }
+        // Update React Flow nodes states
+        if (evt.agent && evt.type) {
+          let status = 'idle';
+          if (evt.type === 'agent_thinking') status = 'thinking';
+          else if (evt.type === 'agent_completed') status = 'completed';
+          else if (evt.type === 'agent_failed') status = 'failed';
+          else if (evt.type === 'agent_retrying') status = 'retrying';
+          else if (evt.type === 'agent_recovered') status = 'recovered';
 
-      // If workflow finishes entirely
-      if (evt.type === 'workflow_started') {
-        setIsTerminalExpanded(true); // Auto-expand terminal
-        showNotification(`🚀 Initiating pipeline for discovered target: ${evt.target}`, 'info');
-      }
+          updateNodeStatus(evt.agent, status, evt.data?.output);
+        }
 
-      if (evt.type === 'shadow_divergence') {
-        showNotification(`⚠️ Risk Critic flagged a Divergence Warning for ${evt.target}!`, 'warning');
-      }
+        // Update live thought texts
+        if (evt.agent && evt.type === 'agent_reasoning' && evt.data?.chunk) {
+          setStreamingThoughts((prev) => ({
+            ...prev,
+            [evt.agent]: (prev[evt.agent] || '') + evt.data.chunk
+          }));
+        }
 
-      if (evt.type === 'workflow_completed') {
-        showNotification(`🎉 Qualified new company lead: ${evt.target}!`, 'success');
-        fetchData();
-      }
+        // If workflow finishes entirely
+        if (evt.type === 'workflow_started') {
+          setIsTerminalExpanded(true); // Auto-expand terminal
+          showNotification(`🚀 Initiating pipeline for discovered target: ${evt.target}`, 'info');
+        }
 
-      if (evt.type === 'lead_contacts_updated') {
-        showNotification(`👥 Discovered ${evt.data?.new_contacts_count} new decision makers for ${evt.target}!`, 'success');
-        fetchData();
-      }
+        if (evt.type === 'shadow_divergence') {
+          showNotification(`⚠️ Risk Critic flagged a Divergence Warning for ${evt.target}!`, 'warning');
+        }
 
-      if (evt.type === 'lead_scanned_no_change') {
-        showNotification(`🔍 ${evt.target} was scanned silently. No new decision makers found.`, 'info');
-        fetchData();
-      }
+        if (evt.type === 'workflow_completed') {
+          showNotification(`🎉 Qualified new company lead: ${evt.target}!`, 'success');
+          fetchData();
+        }
+
+        if (evt.type === 'lead_contacts_updated') {
+          showNotification(`👥 Discovered decision makers for ${evt.target}!`, 'success');
+          fetchData();
+        }
+
+        if (evt.type === 'lead_scanned_no_change') {
+          showNotification(`🔍 ${evt.target} was scanned silently. No new decision makers found.`, 'info');
+          fetchData();
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[WebSocket] Connection closed. Reconnecting in 3 seconds...');
+        reconnectTimeout = setTimeout(connect, 3000);
+      };
+
+      ws.onerror = (err) => {
+        console.error('[WebSocket] Socket encountered error: ', err);
+        ws.close();
+      };
     };
 
+    connect();
+
     return () => {
-      if (wsRef.current) wsRef.current.close();
+      if (ws) ws.close();
+      clearTimeout(reconnectTimeout);
     };
   }, [updateNodeStatus, showNotification]);
 
@@ -417,6 +440,25 @@ export default function App() {
         body: JSON.stringify({ action, outreach_template: template })
       });
       if (res.ok) {
+        if (action === 'approve') {
+          // Find contact and trigger mail client popup automatically
+          const lead = leads.find(l => l.id === leadId) || approvalQueue.find(l => l.id === leadId);
+          if (lead) {
+            const firstContact = lead.contacts?.[0];
+            if (firstContact) {
+              const email = firstContact.plain_email || firstContact.email || '';
+              const rawTemplate = template || lead.outreach_template || '';
+              const lines = rawTemplate.split('\n');
+              const subjectLine = lines.find(line => line.toLowerCase().startsWith('subject:')) || '';
+              const subject = subjectLine ? subjectLine.replace(/subject:/i, '').trim() : `Outreach to ${lead.company_name}`;
+              const bodyLines = lines.filter(line => !line.toLowerCase().startsWith('subject:'));
+              const body = bodyLines.join('\n').trim();
+              
+              const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+              window.open(mailtoUrl, '_self');
+            }
+          }
+        }
         fetchData();
         if (selectedLead && selectedLead.id === leadId) {
           setSelectedLead(prev => prev ? { ...prev, status: action === 'approve' ? 'approved' : 'rejected', outreach_template: template || prev.outreach_template } : null);
