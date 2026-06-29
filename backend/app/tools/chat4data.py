@@ -14,6 +14,12 @@ class Chat4DataTool(BaseTool):
     def __init__(self):
         super().__init__(name="chat4data")
 
+    def _slice_golden_data(self, golden_data: Dict[str, Any]) -> Any:
+        return {
+            "company_details": golden_data.get("company", {}),
+            "contacts": golden_data.get("contacts", [])
+        }
+
     async def _execute_live(self, params: Dict[str, Any]) -> ToolResult:
         text = params.get("text", "")
         schema_type = params.get("schema_type", "both")  # "company", "contacts", or "both"

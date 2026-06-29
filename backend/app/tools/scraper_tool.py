@@ -27,6 +27,37 @@ class ScraperTool(BaseTool):
         if not url:
             return ToolResult(data={"text": ""}, source="scraper_empty")
 
+        # Try to use Firecrawl API if configured with a real API key
+        api_key = settings.FIRECRAWL_API_KEY
+        if api_key and not api_key.startswith("mock_"):
+            try:
+                headers = {
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "url": url,
+                    "formats": ["markdown"]
+                }
+                async with httpx.AsyncClient(timeout=20.0) as client:
+                    response = await client.post("https://api.firecrawl.dev/v1/scrape", json=payload, headers=headers)
+                    if response.status_code == 200:
+                        res_json = response.json()
+                        if res_json.get("success") and "data" in res_json:
+                            data = res_json["data"]
+                            markdown_content = data.get("markdown", "")
+                            title = data.get("metadata", {}).get("title", "Scraped Page")
+                            return ToolResult(
+                                data={
+                                    "url": url,
+                                    "text": markdown_content[:6000],
+                                    "title": title
+                                },
+                                source="firecrawl_api"
+                            )
+            except Exception as fe:
+                print(f"[ScraperTool] Firecrawl API scrape failed: {fe}. Falling back to BeautifulSoup...")
+
         try:
             async with httpx.AsyncClient(follow_redirects=True, verify=False) as client:
                 headers = {

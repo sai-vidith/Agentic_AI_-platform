@@ -153,27 +153,24 @@ class EnrichmentTool(BaseTool):
                 if not linkedin_url:
                     linkedin_url = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
 
-                # 3. Try to scrape the company homepage via BeautifulSoup
+                # 3. Try to scrape the company homepage via ScraperTool (which integrates Firecrawl & BeautifulSoup)
                 markdown_content = None
                 try:
-                    print(f"[EnrichmentTool] Scraping homepage via BeautifulSoup: {website}")
-                    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-                    response = requests.get(website, headers=headers, timeout=10.0, verify=False)
-                    if response.status_code == 200:
-                        from bs4 import BeautifulSoup
-                        soup = BeautifulSoup(response.text, "lxml")
-                        # Strip standard formatting elements
-                        for tag in soup(["script", "style", "nav", "header", "footer", "noscript", "svg"]):
-                            tag.decompose()
-                        raw_text = soup.get_text(separator="\n")
-                        clean_lines = []
-                        for line in raw_text.splitlines():
-                            stripped = line.strip()
-                            if stripped and len(stripped) > 3:
-                                clean_lines.append(stripped)
-                        markdown_content = "\n".join(clean_lines)[:6000]
+                    print(f"[EnrichmentTool] Scraping homepage via ScraperTool: {website}")
+                    from app.tools.scraper_tool import ScraperTool
+                    scraper = ScraperTool()
+                    
+                    # Run the async scraper execution in the executor thread using a temporary loop
+                    loop_temp = asyncio.new_event_loop()
+                    try:
+                        scrape_res = loop_temp.run_until_complete(scraper.execute({"url": website}))
+                        if scrape_res and hasattr(scrape_res, "data") and scrape_res.data.get("text"):
+                            markdown_content = scrape_res.data["text"]
+                            print(f"[EnrichmentTool] Successfully scraped target homepage via ScraperTool. Source: {scrape_res.source}")
+                    finally:
+                        loop_temp.close()
                 except Exception as sc_ex:
-                    print(f"[EnrichmentTool] BeautifulSoup scrape failed: {sc_ex}")
+                    print(f"[EnrichmentTool] ScraperTool call failed: {sc_ex}")
 
                 # 4. Retrieve general web summary data as fallback
                 summary = ""

@@ -28,8 +28,8 @@ export default function ObservabilityView({
   };
 
   const cleanSpanName = (name: any) => {
-    if (typeof name !== 'string') return 'UNKNOWN';
-    return name.replace(/_/g, ' ').replace(/agent/gi, '').toUpperCase().trim() || 'SPAN';
+    if (!name) return 'UNKNOWN';
+    return String(name).replace(/_/g, ' ').replace(/agent/gi, '').toUpperCase().trim() || 'SPAN';
   };
 
   const avgLatency = 1.85;
@@ -99,7 +99,7 @@ export default function ObservabilityView({
                   >
                     <div>
                       <div className="font-semibold text-primary">{trace.metadata?.company_name || 'Event pipeline run'}</div>
-                      <div className="text-[9px] text-muted">ID: {id.substring(0, 12)}...</div>
+                      <div className="text-[9px] text-muted">ID: {String(id || '').substring(0, 12)}...</div>
                     </div>
                   </button>
                 );
@@ -118,9 +118,12 @@ export default function ObservabilityView({
                 <div className="space-y-3.5 w-full">
                   {selectedTraceSpans.map((span, idx) => {
                     if (!span) return null;
-                    const startTime = typeof span.start_time === 'number' ? span.start_time : new Date(span.start_time || 0).getTime() / 1000;
-                    const endTime = typeof span.end_time === 'number' ? span.end_time : new Date(span.end_time || 0).getTime() / 1000;
-                    const duration = (endTime && startTime) ? Math.max(0.01, endTime - startTime) : 0.8;
+                    const sTime = typeof span.start_time === 'number' ? span.start_time : new Date(span.start_time || 0).getTime() / 1000;
+                    const eTime = typeof span.end_time === 'number' ? span.end_time : new Date(span.end_time || 0).getTime() / 1000;
+                    const startTime = isNaN(sTime) ? 0 : sTime;
+                    const endTime = isNaN(eTime) ? 0 : eTime;
+                    const rawDuration = (endTime && startTime) ? Math.max(0.01, endTime - startTime) : 0.8;
+                    const duration = isNaN(rawDuration) ? 0.8 : rawDuration;
                     const cleanName = cleanSpanName(span.name || span.operation);
                     const isFailed = span.metadata?.state === 'failed' || span.status === 'failed';
                     
@@ -175,7 +178,7 @@ export default function ObservabilityView({
               return (
                 <tr key={id} className="border-b border-strong/50 last:border-b-0">
                   <td className="py-2.5 font-bold text-primary">{trace.metadata?.company_name || 'Event Lead'}</td>
-                  <td className="py-2.5 text-muted font-mono">{trace.trace_id}ea7f2e1a34...</td>
+                  <td className="py-2.5 text-muted font-mono">{String(id || '').substring(0, 10)}ea7f2e1a34...</td>
                   <td className="py-2.5">
                     <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${isVerified ? 'bg-success-dim text-success' : 'bg-elevated text-muted'}`}>
                       {isVerified ? 'VERIFIED' : 'UNVERIFIED'}

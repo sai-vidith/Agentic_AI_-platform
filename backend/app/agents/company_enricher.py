@@ -1,4 +1,4 @@
-﻿from typing import Dict, Any, List
+from typing import Dict, Any, List
 import json
 import asyncio
 from app.agents.base_nexus_agent import BaseNexusAgent, notify_agent_event
@@ -74,16 +74,17 @@ class CompanyEnricherAgent(BaseNexusAgent):
             ddg_failed = True
             pipeline_log.append(f"STAGE_0: DDGS search failed: {e}")
 
-        # --- 2. Fallback to BeautifulSoup Scraping if DDGS fails ---
+        # --- 2. Fallback to Firecrawl Scraper if DDGS fails ---
         scraped_text = ""
         resolved_website = None
         
         if ddg_failed or not ddg_results:
-            pipeline_log.append("STAGE_1: DDGS failed. Initiating BeautifulSoup search and scrape fallback...")
+            pipeline_log.append("STAGE_1: DDGS search failed. Initiating Firecrawl Fallback Scraper...")
             try:
-                # Find canonical link using search tool fallback
+                # Search company name using fallback query
                 search_fallback = await self.search_tool.execute({"query": company_name})
                 if search_fallback and hasattr(search_fallback, "data") and search_fallback.data.get("results"):
+                    # Open the first search result link (skipping known third-party aggregators)
                     for item in search_fallback.data["results"]:
                         link = item.get("link", "")
                         if link and not is_aggregator_url(link):
@@ -91,18 +92,18 @@ class CompanyEnricherAgent(BaseNexusAgent):
                             break
                 
                 if resolved_website:
-                    pipeline_log.append(f"STAGE_1: Found target website for scraping: {resolved_website}")
+                    pipeline_log.append(f"STAGE_1: Opening first search result website: {resolved_website}")
                     from app.tools.scraper_tool import ScraperTool
                     scraper = ScraperTool()
-                    # Perform scrape using BeautifulSoup (via scraper tool)
+                    # Scrape page text contents
                     scrape_res = await scraper.execute({"url": resolved_website})
                     if scrape_res and hasattr(scrape_res, "data") and scrape_res.data.get("text"):
                         scraped_text = scrape_res.data["text"]
-                        pipeline_log.append(f"STAGE_1: BeautifulSoup successfully scraped {len(scraped_text)} characters.")
+                        pipeline_log.append(f"STAGE_1: Firecrawl fallback scraped {len(scraped_text)} characters successfully.")
                     else:
-                        pipeline_log.append("STAGE_1: BeautifulSoup scrape returned no text.")
+                        pipeline_log.append("STAGE_1: Firecrawl fallback scrape returned no text.")
             except Exception as ex:
-                pipeline_log.append(f"STAGE_1: BeautifulSoup fallback failed: {ex}")
+                pipeline_log.append(f"STAGE_1: Firecrawl fallback scraper failed: {ex}")
                 
         # Resolve website from DDG results if not already resolved
         if not resolved_website and ddg_results:
