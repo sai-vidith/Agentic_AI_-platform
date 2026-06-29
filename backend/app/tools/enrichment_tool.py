@@ -153,7 +153,7 @@ class EnrichmentTool(BaseTool):
                 if not linkedin_url:
                     linkedin_url = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
 
-                # 3. Try to scrape the company homepage via ScraperTool (which integrates Firecrawl & BeautifulSoup)
+                # 3. Try to scrape the company homepage via ScraperTool (local keyless HTML parser)
                 markdown_content = None
                 try:
                     print(f"[EnrichmentTool] Scraping homepage via ScraperTool: {website}")
@@ -243,7 +243,7 @@ class EnrichmentTool(BaseTool):
                 "linkedin": linkedin_url
             }
             
-            # If Firecrawl provided raw markdown, use LLM to extract company details
+            # If Scraper provided raw markdown, use LLM to extract company details
             if markdown_content:
                 from app.tools.llm_tool import llm_service
                 try:
@@ -292,7 +292,7 @@ class EnrichmentTool(BaseTool):
                     "company": company_data,
                     "contacts": contacts
                 },
-                source="enrichment_live_search" if not markdown_content else "enrichment_live_firecrawl",
+                source="enrichment_live_search" if not markdown_content else "enrichment_live_scraped",
                 latency_ms=2500
             )
 

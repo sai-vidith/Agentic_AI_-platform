@@ -75,6 +75,74 @@ class KnowledgeGraphManager:
             
         return connections
 
+    def find_warm_connections_by_tech(self, target_company: str) -> List[Dict[str, Any]]:
+        """
+        Finds other companies that share technologies with the target company.
+        Path: Target Company -> USES_TECH -> Tech -> USES_TECH -> Other Company
+        """
+        if not self.graph.has_node(target_company):
+            return []
+            
+        # Get all technologies used by target company
+        target_techs = {
+            node for node in self.graph.neighbors(target_company)
+            if self.graph.nodes[node].get("type") == "technology"
+        }
+        
+        connections = []
+        seen = set()
+        
+        for tech in target_techs:
+            # Find other companies using the same tech stack
+            for other_company in self.graph.predecessors(tech):
+                if other_company == target_company or other_company in seen:
+                    continue
+                    
+                attrs = self.graph.nodes[other_company]
+                if attrs.get("type") == "company":
+                    seen.add(other_company)
+                    connections.append({
+                        "company": other_company,
+                        "shared_tech": tech,
+                        "hq": attrs.get("hq", attrs.get("headquarters", "Unknown")),
+                        "icp_score": attrs.get("icp_score", 0),
+                        "status": attrs.get("status", "new")
+                    })
+        # Sort by ICP score to return highest quality peers first
+        return sorted(connections, key=lambda c: c["icp_score"], reverse=True)[:5]
+
+    def find_influence_paths(self, target_company: str) -> List[List[str]]:
+        """
+        Finds paths of relationship influence between known executives in the target company and other persons.
+        E.g. Person A -> INFLUENCES -> Person B -> WORKS_AT -> Target Company
+        """
+        if not self.graph.has_node(target_company):
+            return []
+            
+        # Find members working at the target company
+        members = []
+        for source in self.graph.predecessors(target_company):
+            if self.graph.edges[source, target_company].get("relation") == "WORKS_AT":
+                members.append(source)
+        
+        paths = []
+        # Check for influence edges involving members
+        for member in members:
+            # Undirected search to find influence bridges
+            for node in self.graph.predecessors(member):
+                if self.graph.has_edge(node, member):
+                    rel = self.graph[node][member].get("relation", "")
+                    if rel == "INFLUENCES":
+                        paths.append([node, "INFLUENCES", member, "WORKS_AT", target_company])
+            for node in self.graph.neighbors(member):
+                if self.graph.has_edge(member, node):
+                    rel = self.graph[member][node].get("relation", "")
+                    if rel == "INFLUENCES":
+                        paths.append([member, "INFLUENCES", node, "WORKS_AT", target_company])
+                    
+        return paths
+
+
     def get_subgraph_data(self, start_nodes: List[str], depth: int = 1) -> Dict[str, Any]:
         """Gets node/edge data surrounding start_nodes to display visually."""
         visited = set(start_nodes)

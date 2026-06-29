@@ -8,7 +8,7 @@ This document describes the high-level architecture, key design decisions, and d
 
 NexusAI is built around a decoupled **Client-Server-Agent** architecture designed for low-latency topological execution, high-resilience self-healing, and strict data governance.
 
-![NexusAI High-Level System Architecture Diagram](system_architecture_diagram_1782746360752.png)
+![NexusAI High-Level System Architecture Diagram](../public/system_architecture_diagram_1782746360752.png)
 
 ```mermaid
 graph TD
@@ -93,7 +93,7 @@ To guarantee low-latency real-time visualizations and high throughput, each laye
     *   **Accuracy Gains**: Adversarial debate logs reduce false-positive lead qualifications by **62%** compared to single-agent classifiers.
 
 ### 3. Multi-LLM Fallback & Self-Healing (Resilience Layer)
-*   **Context & Design Trade-off**: Production platforms experience frequent API rate limits (HTTP 429) or transient provider outages. Crashing mid-run corrupts database states, while long polling loops block the client connection.
+*   **Context & Design Trade-off**: API outages and rate limits (HTTP 429) can crash long-running background tasks. Crashing mid-run corrupts database states, while long polling loops block the client connection.
 *   **Architectural Solution**: A self-healing routing wrapper is implemented around LiteLLM. When an execution error is caught, the system marks the task as `AgentState.FAILED`, sleeps for a brief cooldown buffer, dynamically swaps the LLM provider (Groq $\rightarrow$ Gemini), and attempts a fallback run.
 *   **Performance & Cost Impact**:
     *   **Timeout Threshold**: **2.0 seconds** max wait before triggering failover.

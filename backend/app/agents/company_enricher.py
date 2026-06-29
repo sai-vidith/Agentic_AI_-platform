@@ -74,12 +74,12 @@ class CompanyEnricherAgent(BaseNexusAgent):
             ddg_failed = True
             pipeline_log.append(f"STAGE_0: DDGS search failed: {e}")
 
-        # --- 2. Fallback to Firecrawl Scraper if DDGS fails ---
+        # --- 2. Fallback to Local Scraper if DDGS fails ---
         scraped_text = ""
         resolved_website = None
         
         if ddg_failed or not ddg_results:
-            pipeline_log.append("STAGE_1: DDGS search failed. Initiating Firecrawl Fallback Scraper...")
+            pipeline_log.append("STAGE_1: DDGS search failed. Initiating Local HTML Fallback Scraper...")
             try:
                 # Search company name using fallback query
                 search_fallback = await self.search_tool.execute({"query": company_name})
@@ -99,11 +99,11 @@ class CompanyEnricherAgent(BaseNexusAgent):
                     scrape_res = await scraper.execute({"url": resolved_website})
                     if scrape_res and hasattr(scrape_res, "data") and scrape_res.data.get("text"):
                         scraped_text = scrape_res.data["text"]
-                        pipeline_log.append(f"STAGE_1: Firecrawl fallback scraped {len(scraped_text)} characters successfully.")
+                        pipeline_log.append(f"STAGE_1: Local HTML fallback scraped {len(scraped_text)} characters successfully.")
                     else:
-                        pipeline_log.append("STAGE_1: Firecrawl fallback scrape returned no text.")
+                        pipeline_log.append("STAGE_1: Local HTML fallback scrape returned no text.")
             except Exception as ex:
-                pipeline_log.append(f"STAGE_1: Firecrawl fallback scraper failed: {ex}")
+                pipeline_log.append(f"STAGE_1: Local HTML fallback scraper failed: {ex}")
                 
         # Resolve website from DDG results if not already resolved
         if not resolved_website and ddg_results:

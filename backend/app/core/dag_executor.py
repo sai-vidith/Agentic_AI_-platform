@@ -839,13 +839,25 @@ class DAGExecutor:
         # --- Inject KG context into relevant agents ---
         if agent_name in ("summary_agent", "icp_matcher", "shadow_agent"):
             try:
-                kg_connections = kg_manager.query_connections(current_context.get("company_name", ""))
+                company_name = current_context.get("company_name", "")
+                kg_connections = kg_manager.query_connections(company_name)
                 if kg_connections:
                     inputs["knowledge_graph_context"] = [
                         {"subject": s, "relation": r, "object": o}
                         for s, r, o in kg_connections
                     ]
-            except Exception:
+                
+                # Multi-hop GraphRAG Traversals
+                warm_tech_conns = kg_manager.find_warm_connections_by_tech(company_name)
+                influence_paths = kg_manager.find_influence_paths(company_name)
+                
+                if warm_tech_conns or influence_paths:
+                    inputs["knowledge_graph_multi_hop_context"] = {
+                        "shared_technology_paths": warm_tech_conns,
+                        "relationship_influence_paths": influence_paths
+                    }
+            except Exception as kg_ex:
+                print(f"[DAGExecutor] KG multi-hop context injection failed: {kg_ex}")
                 pass
         
         # 1. Chaos Monkey failure injection check

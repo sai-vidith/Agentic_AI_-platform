@@ -83,6 +83,7 @@ class Chat4DataTool(BaseTool):
         try:
             # Execute structured LLM completion
             llm_response = await llm_service.acompletion(
+                model="nexus-fast",
                 messages=[
                     {"role": "system", "content": "You are Chat4Data. You only output valid JSON conforming exactly to the requested schema. No prose."},
                     {"role": "user", "content": prompt}

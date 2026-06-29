@@ -18,6 +18,16 @@ class SummaryAgent(BaseNexusAgent):
         
         primary_contact = contacts[0] if contacts else {}
         
+        # Extract direct and multi-hop Knowledge Graph context
+        kg_context = task_input.get("knowledge_graph_context", [])
+        kg_multi_hop = task_input.get("knowledge_graph_multi_hop_context", {})
+        
+        kg_context_str = ""
+        if kg_context:
+            kg_context_str += f"\nKnowledge Graph Relations:\n{json.dumps(kg_context, indent=2)}\n"
+        if kg_multi_hop:
+            kg_context_str += f"\nKnowledge Graph Multi-Hop Paths (Shared Clients / Personal Connections):\n{json.dumps(kg_multi_hop, indent=2)}\n"
+            
         prompt = f"""
         Draft a personalized outreach email to the primary decision maker at this company.
         
@@ -31,8 +41,9 @@ class SummaryAgent(BaseNexusAgent):
         {json.dumps(triggers)}
         
         ICP Compatibility Score: {icp_score}/100
+        {kg_context_str}
         
-        Write a concise, compelling message referencing recent funding/hiring triggers and their current tool stack.
+        Write a concise, compelling message referencing recent funding/hiring triggers, their current tool stack, and any shared customer connections or personal influence bridges identified in the Knowledge Graph context.
         Respond as JSON:
         {{
           "outreach_template": "Subject: ...\\n\\nBody: ...",
