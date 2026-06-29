@@ -26,7 +26,7 @@ NexusAI is a **6-layer Agentic AI platform** that autonomously discovers, qualif
 
 ## Architecture
 
-![NexusAI Architecture](./public/nexusai_architecture_1782495294990.png)
+![NexusAI Architecture](./system_architecture_diagram_1782746360752.png)
 
 ### Key Design Decisions
 
@@ -272,6 +272,10 @@ qualification_threshold: 70
 ---
 
 ## Team
+
+*   **Sai vidith** — *Team Lead*
+*   **Padala Srishanth** — *Technical Lead*
+*   **Rohith** — *Product Manager*
 
 Built for XL Ventures AI Hackathon 2026.
 
