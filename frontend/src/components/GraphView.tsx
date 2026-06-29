@@ -40,18 +40,21 @@ export default function GraphView({
     return () => clearInterval(interval);
   }, []);
 
-  const activeNode = nodes.find(n => n.data.status === 'thinking');
+  const getAgentStatus = (id: string) => {
+    const node = nodes.find(n => n.id === id);
+    return node ? node.data.status : 'idle';
+  };
 
-  // Hardcoded 8 agents list for Status Rail representation
+  // Dynamic 8 agents list for Status Rail representation linked to active nodes state
   const agentsStatusList = [
-    { id: 'trigger_monitor', label: 'Trigger Monitor', status: 'completed', duration: '0.4s', tokens: 150 },
-    { id: 'company_enricher', label: 'Company Enricher', status: activeNode?.id === 'company_enricher' ? 'thinking' : 'completed', duration: '2.1s', tokens: 420 },
-    { id: 'icp_matcher', label: 'ICP Matcher', status: activeNode?.id === 'icp_matcher' ? 'thinking' : 'idle', duration: '1.2s', tokens: 280 },
-    { id: 'shadow_agent', label: 'Shadow Agent', status: activeNode?.id === 'shadow_agent' ? 'thinking' : 'idle', duration: '3.4s', tokens: 1100 },
-    { id: 'persona_finder', label: 'Persona Finder', status: activeNode?.id === 'persona_finder' ? 'thinking' : 'idle', duration: '1.5s', tokens: 350 },
-    { id: 'contact_enricher', label: 'Contact Enricher', status: activeNode?.id === 'contact_enricher' ? 'thinking' : 'idle', duration: '2.0s', tokens: 680 },
-    { id: 'summary_agent', label: 'Summary Agent', status: activeNode?.id === 'summary_agent' ? 'thinking' : 'idle', duration: '1.8s', tokens: 500 },
-    { id: 'validator_agent', label: 'Validator Agent', status: activeNode?.id === 'validator_agent' ? 'thinking' : 'idle', duration: '1.1s', tokens: 290 }
+    { id: 'trigger_monitor', label: 'Trigger Monitor', status: getAgentStatus('trigger_monitor'), duration: '0.4s', tokens: 150 },
+    { id: 'company_enricher', label: 'Company Enricher', status: getAgentStatus('company_enricher'), duration: '2.1s', tokens: 420 },
+    { id: 'icp_matcher', label: 'ICP Matcher', status: getAgentStatus('icp_matcher'), duration: '1.2s', tokens: 280 },
+    { id: 'shadow_agent', label: 'Shadow Agent', status: getAgentStatus('shadow_agent'), duration: '3.4s', tokens: 1100 },
+    { id: 'persona_finder', label: 'Persona Finder', status: getAgentStatus('persona_finder'), duration: '1.5s', tokens: 350 },
+    { id: 'contact_enricher', label: 'Contact Enricher', status: getAgentStatus('contact_enricher'), duration: '2.0s', tokens: 680 },
+    { id: 'summary_agent', label: 'Summary Agent', status: getAgentStatus('summary_agent'), duration: '1.8s', tokens: 500 },
+    { id: 'validator_agent', label: 'Validator Agent', status: getAgentStatus('validator_agent'), duration: '1.1s', tokens: 290 }
   ];
 
   return (
@@ -74,7 +77,14 @@ export default function GraphView({
           </div>
 
           <div className="flex-1 w-full h-full">
-            <ReactFlow nodes={nodes} edges={edges} fitView fitViewOptions={{ padding: 0.15 }}>
+            <ReactFlow 
+              nodes={nodes} 
+              edges={edges} 
+              fitView 
+              fitViewOptions={{ padding: 0.15 }}
+              minZoom={0.2}
+              maxZoom={1.5}
+            >
               <Controls />
               <Background color="#c8f73a" style={{ opacity: 0.05 }} gap={16} />
             </ReactFlow>

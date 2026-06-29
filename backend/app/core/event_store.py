@@ -33,6 +33,8 @@ if SQLALCHEMY_AVAILABLE:
         debate_transcript = Column(Text, default="[]")
         buying_committee = Column(Text, default="[]")
         domain = Column(String, default="hr_saas")
+        pipeline_log = Column(Text, default="[]")
+        data_quality_flags = Column(Text, default="[]")
         created_at = Column(DateTime, default=datetime.utcnow)
         updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -84,6 +86,10 @@ class EventStore:
                             conn.execute(text("ALTER TABLE leads ADD COLUMN buying_committee TEXT DEFAULT '[]'"))
                         if "domain" not in columns:
                             conn.execute(text("ALTER TABLE leads ADD COLUMN domain TEXT DEFAULT 'hr_saas'"))
+                        if "pipeline_log" not in columns:
+                            conn.execute(text("ALTER TABLE leads ADD COLUMN pipeline_log TEXT DEFAULT '[]'"))
+                        if "data_quality_flags" not in columns:
+                            conn.execute(text("ALTER TABLE leads ADD COLUMN data_quality_flags TEXT DEFAULT '[]'"))
                 except Exception as ex:
                     print(f"Error altering database tables: {ex}")
                 
@@ -157,6 +163,8 @@ class EventStore:
                 lead.debate_transcript = json.dumps(lead_data.get("debate_transcript", []))
                 lead.buying_committee = json.dumps(lead_data.get("buying_committee", []))
                 lead.domain = lead_data.get("domain", "hr_saas")
+                lead.pipeline_log = json.dumps(lead_data.get("pipeline_log", []))
+                lead.data_quality_flags = json.dumps(lead_data.get("data_quality_flags", []))
                 lead.updated_at = datetime.utcnow()
                 session.commit()
 
@@ -192,11 +200,26 @@ class EventStore:
         if self.use_fallback:
             with self.lock:
                 return list(self.fallback_data["leads"].values())
-            
+                
         with self.lock:
             with self.session_factory() as session:
                 leads = session.query(LeadModel).order_by(LeadModel.created_at.desc()).all()
                 return [self._parse_lead_model(l) for l in leads]
+            
+    def delete_lead(self, lead_id: str):
+        if self.use_fallback:
+            with self.lock:
+                if lead_id in self.fallback_data["leads"]:
+                    del self.fallback_data["leads"][lead_id]
+                    self._save_fallback_db()
+            return
+            
+        with self.lock:
+            with self.session_factory() as session:
+                lead = session.query(LeadModel).filter(LeadModel.id == lead_id).first()
+                if lead:
+                    session.delete(lead)
+                    session.commit()
 
     def _parse_lead_model(self, lead: Any) -> Dict[str, Any]:
         return {
@@ -213,6 +236,8 @@ class EventStore:
             "debate_transcript": json.loads(lead.debate_transcript) if getattr(lead, 'debate_transcript', None) else [],
             "buying_committee": json.loads(lead.buying_committee) if getattr(lead, 'buying_committee', None) else [],
             "domain": getattr(lead, 'domain', 'hr_saas') or 'hr_saas',
+            "pipeline_log": json.loads(lead.pipeline_log) if getattr(lead, 'pipeline_log', None) else [],
+            "data_quality_flags": json.loads(lead.data_quality_flags) if getattr(lead, 'data_quality_flags', None) else [],
             "created_at": lead.created_at.isoformat(),
             "updated_at": lead.updated_at.isoformat()
         }

@@ -13,6 +13,7 @@ interface DashboardViewProps {
   leads: any[];
   approvalQueue: any[];
   agentFeed: any[];
+  domainsList: string[];
 }
 
 export default function DashboardView({
@@ -23,7 +24,8 @@ export default function DashboardView({
   handleTriggerDiscovery,
   metrics,
   leads,
-  approvalQueue
+  approvalQueue,
+  domainsList = ['hr_saas', 'cybersecurity']
 }: DashboardViewProps) {
   const totalMonitored = leads.length + approvalQueue.length;
   const qualifiedLeads = leads.filter(l => l.icp_score >= 70).length;
@@ -64,8 +66,11 @@ export default function DashboardView({
                 onChange={(e) => setDomainInput(e.target.value)}
                 className="w-full bg-base border border-strong rounded-sm px-3 py-2.5 text-secondary outline-none focus:border-accent text-xs cursor-pointer font-sans"
               >
-                <option value="hr_saas">HR SaaS Products</option>
-                <option value="cybersecurity">Cybersecurity Tools</option>
+                {domainsList.map(d => (
+                  <option key={d} value={d}>
+                    {d.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

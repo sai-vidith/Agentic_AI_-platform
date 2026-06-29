@@ -249,6 +249,69 @@ class LLMService:
             if comp_match_for:
                 company_name = comp_match_for.group(1).strip()
 
+        # Dynamic context harvesting from live search snippets in prompt
+        real_website = f"https://www.{company_name.lower().replace(' ', '')}.com"
+        real_linkedin = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
+        real_employees = 120
+        real_industry = ""
+        real_hq = ""
+        
+        # 1. Try to find website link
+        web_matches = re.findall(r'"link":\s*"https?://(?:www\.)?([^"/]+)', prompt)
+        for wm in web_matches:
+            if not any(agg in wm for agg in ["linkedin.com", "crunchbase.com", "zoominfo.com", "apollo.io", "sec.gov", "globaldata.com", "github.com", "twitter.com", "youtube.com"]):
+                real_website = f"https://www.{wm}"
+                break
+                
+        # 2. Try to find LinkedIn company page
+        li_matches = re.findall(r'"link":\s*"(https?://(?:www\.)?linkedin\.com/company/[a-zA-Z0-9\-_]+)"', prompt)
+        if li_matches:
+            real_linkedin = li_matches[0]
+            
+        # 3. Try to extract employee count from snippets
+        emp_match = re.search(r'(?:employees|headcount|team size|staff|team of)\D*(\d{1,6})', prompt)
+        if emp_match:
+            real_employees = int(emp_match.group(1))
+            
+        # 4. Try to extract industry from snippets
+        ind_match = re.search(r'(?:industry|sector|vertical|focuses on|category)\D*"?([a-zA-Z\s]{3,25})"?', prompt)
+        if ind_match:
+            real_industry = ind_match.group(1).strip().replace("\n", " ").title()
+            
+        # 5. Try to extract headquarters
+        hq_match = re.search(r'(?:hq|headquartered in|headquarters|office in)\D*"?([a-zA-Z\s,]{3,35})"?', prompt)
+        if hq_match:
+            real_hq = hq_match.group(1).strip().replace("\n", " ").title()
+
+        # Query all mock datasets in mock_data directory
+        from app.config import BASE_DIR
+        mock_dir = BASE_DIR / "app" / "mock_data"
+        found_company = None
+        found_contacts = []
+        if mock_dir.exists():
+            import os
+            for filename in os.listdir(mock_dir):
+                if filename.endswith(".json") and not filename.startswith("."):
+                    try:
+                        with open(mock_dir / filename, "r", encoding="utf-8") as f:
+                            data = json.load(f)
+                            if isinstance(data, list):
+                                for c in data:
+                                    if c.get("name") and company_name.lower() in c.get("name").lower():
+                                        found_company = c
+                                        found_contacts = c.get("contacts", [])
+                                        break
+                            elif isinstance(data, dict):
+                                for c in data.get("companies", []):
+                                    if c.get("name") and company_name.lower() in c.get("name").lower():
+                                        found_company = c
+                                        found_contacts = c.get("contacts", [])
+                                        break
+                    except Exception:
+                        pass
+                if found_company:
+                    break
+
         # 0. Planner Agent Request — dynamic plan generation
         if "orchestration planner" in prompt or "available agents" in prompt:
             return json.dumps({
@@ -263,6 +326,32 @@ class LLMService:
 
         # 1. Company Extraction / Startup Discovery
         if "search results about" in prompt and "companies" in prompt:
+            # Check if domain is custom
+            import os
+            domains = []
+            icp_dir = BASE_DIR / "app" / "business_config" / "icp_profiles"
+            if icp_dir.exists():
+                for filename in os.listdir(icp_dir):
+                    if filename.endswith("_icp.yaml"):
+                        domains.append(filename.replace("_icp.yaml", ""))
+            
+            # Find which domain is referenced in prompt
+            matching_domain = "hr_saas"
+            for d in domains:
+                if d.replace("_", " ") in prompt or d in prompt:
+                    matching_domain = d
+                    break
+                    
+            custom_mock = BASE_DIR / "app" / "mock_data" / f"{matching_domain}_mock.json"
+            if custom_mock.exists():
+                try:
+                    with open(custom_mock, "r", encoding="utf-8") as f:
+                        custom_data = json.load(f)
+                        if isinstance(custom_data, list):
+                            return json.dumps({"companies": [c.get("name") for c in custom_data if c.get("name")]})
+                except Exception:
+                    pass
+                    
             if "cybersecurity" in prompt or "cyber" in prompt:
                 companies = ["Securden", "Wiz", "Armis", "Snyk", "SentinelOne"]
             else:
@@ -278,15 +367,31 @@ class LLMService:
                 ]
             })
 
-        # 3. Company Enricher Agent
-        if "enrichment specialist" in prompt or ("website" in prompt and "founded" in prompt and "hq" in prompt):
+        # 3. Company Enricher Agent & Tool
+        if "enrichment specialist" in prompt or "business intelligence specialist" in prompt:
+            if found_company:
+                return json.dumps({
+                    "name": found_company.get("name", company_name),
+                    "industry": found_company.get("industry", "Software"),
+                    "employees": found_company.get("employees", 120),
+                    "founded": found_company.get("founded", 2021),
+                    "hq": found_company.get("hq", "San Francisco, US"),
+                    "tech_stack": found_company.get("tech_stack", ["React", "AWS"]),
+                    "current_hr_tool": found_company.get("current_hr_tool", "Excel"),
+                    "recent_funding": found_company.get("recent_funding"),
+                    "growth_rate": found_company.get("growth_rate", "30% growth"),
+                    "website": found_company.get("website", real_website),
+                    "linkedin": found_company.get("linkedin", real_linkedin),
+                    "description": found_company.get("description", f"{company_name} is a leading enterprise.")
+                })
+                
             is_cyber = "cybersecurity" in prompt or "cyber" in prompt or "securden" in prompt or "wiz" in prompt or "armis" in prompt or "snyk" in prompt
             return json.dumps({
                 "name": company_name,
-                "industry": "Cybersecurity Tools" if is_cyber else "HR SaaS / Fintech",
-                "employees": 180,
+                "industry": real_industry or ("Cybersecurity Tools" if is_cyber else "HR SaaS / Fintech"),
+                "employees": real_employees,
                 "founded": 2020,
-                "hq": "Chennai, India" if is_cyber else "Bengaluru, India",
+                "hq": real_hq or ("Chennai, India" if is_cyber else "Bengaluru, India"),
                 "tech_stack": ["React", "AWS", "Python", "Docker"] if is_cyber else ["Node.js", "React", "PostgreSQL"],
                 "current_hr_tool": "Excel" if is_cyber else "Gusto",
                 "recent_funding": {
@@ -295,19 +400,20 @@ class LLMService:
                     "date": "2025-10-10"
                 },
                 "growth_rate": "40% headcount growth",
-                "website": f"https://www.{company_name.lower().replace(' ', '')}.com",
-                "linkedin": f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}",
+                "website": real_website,
+                "linkedin": real_linkedin,
                 "description": f"{company_name} is a leading provider of software solutions catering to enterprise accounts globally."
             })
 
         # 4. ICP Matcher Agent
         if "icp score" in prompt or "ideal customer profile" in prompt:
             return json.dumps({
-                "industry_score": 90,
-                "scale_score": 85,
-                "intent_score": 95,
-                "tech_score": 80,
-                "score": 88,
+                "industry_alignment": 22,
+                "growth_signal_strength": 20,
+                "company_size_fit": 18,
+                "tech_stack_alignment": 12,
+                "decision_maker_access": 11,
+                "total_score": 83,
                 "justification": f"{company_name} matches all core Ideal Customer Profile metrics including industry vertical alignment, growth signals, and scaling headcount."
             })
 
@@ -326,6 +432,20 @@ class LLMService:
 
         # 6. Persona Finder Agent / Matched Contacts
         if "matched_contacts" in prompt:
+            if found_contacts:
+                contacts_list = []
+                for idx, c in enumerate(found_contacts):
+                    contacts_list.append({
+                        "name": c.get("name", ""),
+                        "title": c.get("title", ""),
+                        "email": c.get("email", ""),
+                        "phone": c.get("phone", ""),
+                        "linkedin": c.get("linkedin", ""),
+                        "joined_date": c.get("joined_date", "2023-01-10"),
+                        "persona_rank": idx + 1
+                    })
+                return json.dumps({"matched_contacts": contacts_list})
+                
             is_cyber = "cybersecurity" in prompt or "cyber" in prompt or "ciso" in prompt or "cto" in prompt
             if is_cyber:
                 contacts = [

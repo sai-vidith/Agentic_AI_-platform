@@ -46,6 +46,18 @@ export default function App() {
   const [inDashboard, setInDashboard] = useState(false);
   const [companyInput, setCompanyInput] = useState('');
   const [domainInput, setDomainInput] = useState('hr_saas');
+  const [domainsList, setDomainsList] = useState<string[]>(['hr_saas', 'cybersecurity']);
+
+  const fetchDomains = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/config/domains/list`);
+      if (res.ok) {
+        setDomainsList(await res.json());
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   // Overlay States
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -280,7 +292,8 @@ export default function App() {
   useEffect(() => {
     initializeDAG('');
     fetchData();
-  }, [initializeDAG]);
+    fetchDomains();
+  }, [initializeDAG, fetchDomains]);
 
   useEffect(() => {
     fetchConfigs();
@@ -635,6 +648,7 @@ export default function App() {
                 leads={leads}
                 approvalQueue={approvalQueue}
                 agentFeed={agentFeed}
+                domainsList={domainsList}
               />
             )}
 
@@ -658,6 +672,7 @@ export default function App() {
                 decryptedPII={decryptedPII}
                 simulateVaultAccess={simulateVaultAccess}
                 handleDeleteLead={handleDeleteLead}
+                handleApproval={handleApproval}
               />
             )}
 
@@ -674,6 +689,8 @@ export default function App() {
                 personasConfig={personasConfig}
                 domainInput={domainInput}
                 setDomainInput={setDomainInput}
+                domainsList={domainsList}
+                fetchDomains={fetchDomains}
               />
             )}
 

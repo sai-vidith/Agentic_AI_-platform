@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Mail, Eye, Network, Check, X, ShieldAlert, Cpu, Linkedin, Globe, ExternalLink } from 'lucide-react';
+import { ShieldCheck, Mail, Eye, Network, Check, X, ShieldAlert, Cpu, Linkedin, Globe, ExternalLink, Activity } from 'lucide-react';
 
 interface LeadsViewProps {
   leads: any[];
@@ -9,6 +9,7 @@ interface LeadsViewProps {
   decryptedPII: Record<string, { email: string; phone: string }>;
   simulateVaultAccess: (leadId: string, rawEmail: string, rawPhone: string, plainEmail: string, plainPhone: string) => void;
   handleDeleteLead: (leadId: string) => void;
+  handleApproval?: (leadId: string, action: 'approve' | 'reject', outreachTemplate?: string) => Promise<any>;
 }
 
 export default function LeadsView({
@@ -17,21 +18,34 @@ export default function LeadsView({
   setSelectedLead,
   decryptedPII,
   simulateVaultAccess,
-  handleDeleteLead
+  handleDeleteLead,
+  handleApproval
 }: LeadsViewProps) {
   const [expandedIcpId, setExpandedIcpId] = useState<string | null>(null);
   const [domainFilter, setDomainFilter] = useState<'all' | 'hr_saas' | 'cybersecurity'>('all');
+  const [leadTab, setLeadTab] = useState<'approved' | 'pending' | 'disqualified' | 'all_scans'>('approved');
   
-  const qualifiedLeads = leads.filter(l => {
-    const isQual = l.status === 'approved' || l.icp_score >= 70;
-    if (!isQual) return false;
+  // Calculate counts for tab headers
+  const approvedCount = leads.filter(l => l.status === 'approved').length;
+  const pendingCount = leads.filter(l => l.status === 'approval_required').length;
+  const disqualifiedCount = leads.filter(l => l.status === 'disqualified').length;
+  const totalScansCount = leads.length;
+
+  const filteredByTab = leads.filter(l => {
+    if (leadTab === 'approved') return l.status === 'approved';
+    if (leadTab === 'pending') return l.status === 'approval_required';
+    if (leadTab === 'disqualified') return l.status === 'disqualified';
+    return true; // show all scans
+  });
+
+  const qualifiedLeads = filteredByTab.filter(l => {
     if (domainFilter === 'all') return true;
     return l.domain === domainFilter;
   });
 
-  const totalAllCount = leads.filter(l => l.status === 'approved' || l.icp_score >= 70).length;
-  const hrSaasCount = leads.filter(l => (l.status === 'approved' || l.icp_score >= 70) && l.domain === 'hr_saas').length;
-  const cyberCount = leads.filter(l => (l.status === 'approved' || l.icp_score >= 70) && l.domain === 'cybersecurity').length;
+  const totalAllCount = filteredByTab.length;
+  const hrSaasCount = filteredByTab.filter(l => l.domain === 'hr_saas').length;
+  const cyberCount = filteredByTab.filter(l => l.domain === 'cybersecurity').length;
 
   const toggleIcpBreakdown = (e: React.MouseEvent, leadId: string) => {
     e.stopPropagation();
@@ -43,8 +57,44 @@ export default function LeadsView({
       {/* Left Pane: Leads List */}
       <div className="w-1/2 flex flex-col gap-4 min-h-0">
         <div className="border-b border-strong pb-3">
-          <h2 className="font-display font-bold text-lg text-primary uppercase tracking-tight">QUALIFIED LEADS VAULT</h2>
-          <p className="text-[11px] text-muted font-sans mt-0.5">Explore discovered leads that successfully cleared the target scoring threshold.</p>
+          <h2 className="font-display font-bold text-lg text-primary uppercase tracking-tight">PROSPECT INTELLIGENCE & AUDIT VAULT</h2>
+          <p className="text-[11px] text-muted font-sans mt-0.5">Explore discovered leads, approve new candidates, audit disqualified records, and trace background silent scans.</p>
+          
+          {/* Status Tabs Segment Control */}
+          <div className="flex gap-2 mt-4 border-b border-strong/40 pb-2">
+            <button
+              onClick={() => setLeadTab('approved')}
+              className={`px-2 py-1 text-[10px] font-mono font-bold uppercase transition rounded-sm ${
+                leadTab === 'approved' ? 'bg-success-dim text-success border border-success/30' : 'bg-transparent text-muted hover:text-secondary'
+              }`}
+            >
+              Approved ({approvedCount})
+            </button>
+            <button
+              onClick={() => setLeadTab('pending')}
+              className={`px-2 py-1 text-[10px] font-mono font-bold uppercase transition rounded-sm ${
+                leadTab === 'pending' ? 'bg-warning-dim text-warning border border-warning/30' : 'bg-transparent text-muted hover:text-secondary'
+              }`}
+            >
+              Pending ({pendingCount})
+            </button>
+            <button
+              onClick={() => setLeadTab('disqualified')}
+              className={`px-2 py-1 text-[10px] font-mono font-bold uppercase transition rounded-sm ${
+                leadTab === 'disqualified' ? 'bg-danger-dim text-danger border border-danger/30' : 'bg-transparent text-muted hover:text-secondary'
+              }`}
+            >
+              Disqualified ({disqualifiedCount})
+            </button>
+            <button
+              onClick={() => setLeadTab('all_scans')}
+              className={`px-2 py-1 text-[10px] font-mono font-bold uppercase transition rounded-sm ${
+                leadTab === 'all_scans' ? 'bg-accent-dim text-accent border border-accent/30' : 'bg-transparent text-muted hover:text-secondary'
+              }`}
+            >
+              All Scans ({totalScansCount})
+            </button>
+          </div>
           
           {/* Domain Filter Buttons */}
           <div className="flex gap-2 mt-3">
@@ -102,6 +152,21 @@ export default function LeadsView({
                         {lead.status === 'approved' && (
                           <span className="px-1.5 py-0.5 bg-success-dim border border-success/40 text-success text-[8px] font-mono uppercase rounded flex items-center gap-1 font-bold">
                             <Check className="w-2 h-2" /> Approved
+                          </span>
+                        )}
+                        {lead.status === 'approval_required' && (
+                          <span className="px-1.5 py-0.5 bg-warning-dim border border-warning/40 text-warning text-[8px] font-mono uppercase rounded flex items-center gap-1 font-bold">
+                            <Eye className="w-2 h-2" /> Pending Review
+                          </span>
+                        )}
+                        {lead.status === 'disqualified' && (
+                          <span className="px-1.5 py-0.5 bg-danger-dim border border-danger/40 text-danger text-[8px] font-mono uppercase rounded flex items-center gap-1 font-bold">
+                            <X className="w-2 h-2" /> Disqualified
+                          </span>
+                        )}
+                        {lead.status === 'new' && (
+                          <span className="px-1.5 py-0.5 bg-accent-dim border border-accent/40 text-accent text-[8px] font-mono uppercase rounded flex items-center gap-1 font-bold">
+                            <Network className="w-2 h-2" /> Discovered
                           </span>
                         )}
                       </div>
@@ -244,6 +309,38 @@ export default function LeadsView({
                 </p>
               </div>
 
+              {/* Pending Human Approval Panel */}
+              {selectedLead.status === 'approval_required' && handleApproval && (
+                <div className="p-4 border border-warning/30 bg-warning-dim rounded flex flex-col gap-2 shrink-0">
+                  <div className="text-xs text-warning font-semibold uppercase font-mono flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4" /> Pending Human-in-the-Loop Approval
+                  </div>
+                  <p className="text-[11px] text-muted font-sans leading-relaxed">
+                    This lead successfully cleared the target ICP criteria and requires manual validation before outreach campaign dispatch.
+                  </p>
+                  <div className="flex gap-2.5 mt-2">
+                    <button
+                      onClick={async () => {
+                        await handleApproval(selectedLead.id, 'approve', selectedLead.outreach_template);
+                        setSelectedLead({ ...selectedLead, status: 'approved' });
+                      }}
+                      className="flex-1 py-1.5 bg-success hover:bg-success/80 text-slate-950 font-display font-bold rounded text-[11px] uppercase transition text-center shadow-lg"
+                    >
+                      Approve & Dispatch
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await handleApproval(selectedLead.id, 'reject');
+                        setSelectedLead({ ...selectedLead, status: 'rejected' });
+                      }}
+                      className="px-4 py-1.5 bg-elevated border border-strong hover:bg-danger text-secondary hover:text-white font-display font-bold rounded text-[11px] uppercase transition text-center"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Secure Vault */}
               <div className="p-4 bg-base border border-strong rounded relative space-y-3">
                 <div className="flex justify-between items-center border-b border-strong pb-2">
@@ -285,6 +382,21 @@ export default function LeadsView({
                   })}
                 </div>
               </div>
+
+              {/* Pipeline Activity Logs */}
+              {selectedLead.pipeline_log && selectedLead.pipeline_log.length > 0 && (
+                <div className="space-y-3">
+                  <span className="text-[10px] font-semibold text-muted font-sans uppercase tracking-wider block">Agent Pipeline Logs & Activity Trace</span>
+                  <div className="p-4 bg-base border border-strong rounded font-mono text-[10px] text-secondary space-y-2 max-h-[200px] overflow-y-auto leading-relaxed">
+                    {selectedLead.pipeline_log.map((log: string, lIdx: number) => (
+                      <div key={lIdx} className="border-b border-strong/20 pb-1.5 last:border-0 last:pb-0 flex gap-2">
+                        <span className="text-accent shrink-0">⚡</span>
+                        <span>{log}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Debate Transcript */}
               {selectedLead.debate_transcript && selectedLead.debate_transcript.length > 0 && (

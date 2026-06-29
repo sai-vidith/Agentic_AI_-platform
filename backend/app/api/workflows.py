@@ -73,6 +73,14 @@ async def get_lead_details(lead_id: str):
         raise HTTPException(status_code=404, detail="Lead not found")
     return lead
 
+@router.delete("/leads/{lead_id}")
+async def delete_lead(lead_id: str):
+    lead = event_store.get_lead(lead_id)
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    event_store.delete_lead(lead_id)
+    return {"status": "success", "message": f"Successfully deleted lead {lead_id}"}
+
 class DecryptRequest(BaseModel):
     cipher_text: str
 

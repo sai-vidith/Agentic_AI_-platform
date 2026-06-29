@@ -152,9 +152,44 @@ async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
     """Runs multiple intensive search queries to discover a broad pool of B2B target startups."""
     import asyncio
     import json
+    from pathlib import Path
+    from app.config import BASE_DIR
     from app.tools.search_tool import SearchTool
     from app.tools.llm_tool import llm_service
     
+    # Check custom mock file first (Latency and Custom Domain optimization)
+    mock_file = BASE_DIR / "app" / "mock_data" / f"{domain}_mock.json"
+    if mock_file.exists():
+        try:
+            with open(mock_file, "r", encoding="utf-8") as f:
+                mock_data = json.load(f)
+                companies = []
+                if isinstance(mock_data, list):
+                    companies = [c.get("name") for c in mock_data if c.get("name")]
+                elif isinstance(mock_data, dict):
+                    companies = mock_data.get("companies", [])
+                if companies:
+                    return companies[:limit]
+        except Exception as e:
+            print(f"Error loading custom mock file: {e}")
+
+    # Load trigger keywords dynamically from the active domain's trigger config file
+    import yaml
+    from app.config import BUSINESS_CONFIG_DIR
+    triggers_file = BUSINESS_CONFIG_DIR / "triggers" / f"{domain}_triggers.yaml"
+    trigger_keywords = []
+    if triggers_file.exists():
+        try:
+            with open(triggers_file, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+                if isinstance(config, dict):
+                    triggers = config.get("triggers", [])
+                    for t in triggers:
+                        if isinstance(t, dict):
+                            trigger_keywords.extend(t.get("keywords", []))
+        except Exception as e:
+            print(f"Error loading triggers configuration for company discovery: {e}")
+
     search_tool = SearchTool()
     domain_clean = domain.replace('_', ' ')
     
@@ -166,6 +201,11 @@ async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
         f"top {domain_clean} startups in India 2025 2026",
         f"recently funded Indian B2B {domain_clean} companies"
     ]
+    
+    # Append dynamic trigger-keyword news searches to increase coverage and accuracy
+    for kw in trigger_keywords[:4]:
+        queries.append(f"news \"{kw}\" startup funding 2025 2026")
+        queries.append(f"\"{kw}\" company launch list 2026")
     
     # Run in parallel
     tasks = [search_tool.execute({"query": q}) for q in queries]

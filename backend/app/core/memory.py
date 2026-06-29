@@ -137,10 +137,17 @@ class SharedMemory:
         """Updates the memory with data from an agent."""
         if not data:
             return
-        if tier == "scratchpad":
-            self.scratchpad.update(data)
-        elif tier == "short_term":
-            self.short_term.update(data)
+        target = self.scratchpad if tier == "scratchpad" else self.short_term
+        for k, v in data.items():
+            if k in ("pipeline_log", "data_quality_flags") and k in target and isinstance(target[k], list) and isinstance(v, list):
+                # Accumulate unique list items
+                merged = list(target[k])
+                for item in v:
+                    if item not in merged:
+                        merged.append(item)
+                target[k] = merged
+            else:
+                target[k] = v
             
     def get(self, key: str, default: Any = None) -> Any:
         if key in self.scratchpad:

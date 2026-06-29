@@ -20,35 +20,56 @@ class EnrichmentTool(BaseTool):
 
     async def _execute_live(self, params: Dict[str, Any]) -> ToolResult:
         company_name = params.get("company_name", "")
+        domain = params.get("domain", "")
         if not company_name:
             return ToolResult(data={}, source="enrichment_live")
 
-        # Query mock database files first for instant demo responses
-        companies_path = DATA_DIR / "companies.json"
-        contacts_path = DATA_DIR / "contacts.json"
-        
         company_info = {}
         contacts_info = []
-        
-        if companies_path.exists():
-            with open(companies_path, "r", encoding="utf-8") as f:
-                companies = json.load(f)
-                for c in companies:
-                    if company_name.lower() in c.get("name", "").lower():
-                        company_info = c
-                        if "linkedin" not in company_info:
-                            company_info["linkedin"] = f"https://www.linkedin.com/company/{company_info.get('name', '').lower().replace(' ', '')}"
-                        if "website" not in company_info:
-                            company_info["website"] = f"https://www.{company_info.get('name', '').lower().replace(' ', '')}.com"
-                        break
-                        
-        if contacts_path.exists():
-            with open(contacts_path, "r", encoding="utf-8") as f:
-                contacts = json.load(f)
-                for entry in contacts:
-                    if company_name.lower() in entry.get("company_name", "").lower():
-                        contacts_info = entry.get("contacts", [])
-                        break
+
+        # Try custom mock first
+        if domain:
+            custom_path = DATA_DIR / f"{domain}_mock.json"
+            if custom_path.exists():
+                try:
+                    with open(custom_path, "r", encoding="utf-8") as f:
+                        companies = json.load(f)
+                        for c in companies:
+                            if company_name.lower() in c.get("name", "").lower():
+                                company_info = c
+                                contacts_info = c.get("contacts", [])
+                                if "linkedin" not in company_info:
+                                    company_info["linkedin"] = f"https://www.linkedin.com/company/{company_info.get('name', '').lower().replace(' ', '')}"
+                                if "website" not in company_info:
+                                    company_info["website"] = f"https://www.{company_info.get('name', '').lower().replace(' ', '')}.com"
+                                break
+                except Exception as e:
+                    print(f"Error reading custom mock file: {e}")
+
+        # Fallback to standard mock files if not found in custom mock
+        if not company_info:
+            companies_path = DATA_DIR / "companies.json"
+            contacts_path = DATA_DIR / "contacts.json"
+            
+            if companies_path.exists():
+                with open(companies_path, "r", encoding="utf-8") as f:
+                    companies = json.load(f)
+                    for c in companies:
+                        if company_name.lower() in c.get("name", "").lower():
+                            company_info = c
+                            if "linkedin" not in company_info:
+                                company_info["linkedin"] = f"https://www.linkedin.com/company/{company_info.get('name', '').lower().replace(' ', '')}"
+                            if "website" not in company_info:
+                                company_info["website"] = f"https://www.{company_info.get('name', '').lower().replace(' ', '')}.com"
+                            break
+                            
+            if contacts_path.exists():
+                with open(contacts_path, "r", encoding="utf-8") as f:
+                    contacts = json.load(f)
+                    for entry in contacts:
+                        if company_name.lower() in entry.get("company_name", "").lower():
+                            contacts_info = entry.get("contacts", [])
+                            break
 
         if company_info:
             return ToolResult(

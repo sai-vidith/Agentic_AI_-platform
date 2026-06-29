@@ -7,7 +7,8 @@ async def main():
         dag = await planner_agent.create_plan("hr_saas", "RazorX Fintech")
         executor = DAGExecutor(dag)
         await executor.execute()
-        print("FINISHED SUCCESSFULLY")
+        print("FINISHED SUCCESSFULLY. Waiting for background tasks/Kimi audit to complete...")
+        await asyncio.sleep(6.0)
     except Exception as e:
         import traceback
         traceback.print_exc()

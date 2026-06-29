@@ -27,20 +27,20 @@ async def run_autonomous_market_scan(domain: str, limit: int = 2):
         print(f"[Scheduler] Background discovery failed: {e}")
 
 def start_scheduler():
-    # Schedule an autonomous market scan every 10 minutes for HR SaaS
+    # Schedule an autonomous market scan every 3 minutes for HR SaaS
     scheduler.add_job(
         run_autonomous_market_scan,
         trigger="interval",
-        minutes=10,
+        minutes=3,
         args=["hr_saas", 2],
         id="autonomous_market_scan_hr",
         replace_existing=True
     )
-    # Schedule an autonomous market scan every 10 minutes for Cybersecurity
+    # Schedule an autonomous market scan every 3 minutes for Cybersecurity
     scheduler.add_job(
         run_autonomous_market_scan,
         trigger="interval",
-        minutes=10,
+        minutes=3,
         args=["cybersecurity", 2],
         id="autonomous_market_scan_cyber",
         replace_existing=True

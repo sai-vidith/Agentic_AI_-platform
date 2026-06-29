@@ -1,4 +1,5 @@
 import asyncio
+import json
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, List
@@ -321,11 +322,9 @@ class DAGExecutor:
         
         status = LeadStatus.NEW
         if is_valid and icp_score >= 70:
-            status = LeadStatus.QUALIFIED
+            status = LeadStatus.APPROVAL_REQUIRED
         elif icp_score < 50:
             status = LeadStatus.DISQUALIFIED
-        if shadow_verdict and shadow_verdict.get("status") == "DIVERGENCE_WARNING":
-            status = LeadStatus.APPROVAL_REQUIRED
             
         website = None
         if isinstance(company_details, dict):
@@ -451,6 +450,21 @@ class DAGExecutor:
             existing_lead["shadow_verdict"] = shadow_verdict
             existing_lead["outreach_template"] = outreach_template
             
+            # Dynamically update status if the lead was not already approved or rejected
+            if is_valid and icp_score >= 70:
+                if existing_lead.get("status") not in [LeadStatus.APPROVED.value, LeadStatus.REJECTED.value]:
+                    existing_lead["status"] = LeadStatus.APPROVAL_REQUIRED.value
+            elif icp_score < 50:
+                if existing_lead.get("status") not in [LeadStatus.APPROVED.value, LeadStatus.REJECTED.value]:
+                    existing_lead["status"] = LeadStatus.DISQUALIFIED.value
+            
+            # Merge pipeline logs and flags
+            pipeline_log = self.memory.get("pipeline_log", [])
+            data_quality_flags = self.memory.get("data_quality_flags", [])
+            
+            existing_lead["pipeline_log"] = existing_lead.get("pipeline_log", []) + [l for l in pipeline_log if l not in existing_lead.get("pipeline_log", [])]
+            existing_lead["data_quality_flags"] = existing_lead.get("data_quality_flags", []) + [f for f in data_quality_flags if f not in existing_lead.get("data_quality_flags", [])]
+            
             # Save the updated lead
             event_store.save_lead(existing_lead)
             
@@ -557,6 +571,9 @@ class DAGExecutor:
             })
 
         debate_transcript = self.memory.get("debate_transcript", [])
+        
+        pipeline_log = self.memory.get("pipeline_log", [])
+        data_quality_flags = self.memory.get("data_quality_flags", [])
 
         lead_summary = {
             "id": lead_id,
@@ -574,8 +591,51 @@ class DAGExecutor:
             "debate_transcript": debate_transcript,
             "buying_committee": engagement_sequence,
             "domain": self.domain,
+            "pipeline_log": pipeline_log,
+            "data_quality_flags": data_quality_flags,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
+        
+        # Mapped to strict Output Contract
+        lead_summary["company"] = {
+            "name": company_name,
+            "domain": company_details.get("website", ""),
+            "description": company_details.get("description", ""),
+            "headquarters": company_details.get("hq", ""),
+            "employee_count": company_details.get("employees"),
+            "founded_year": company_details.get("founded"),
+            "linkedin_company_url": company_details.get("linkedin"),
+            "funding_stage": company_details.get("recent_funding", {}).get("round") if isinstance(company_details.get("recent_funding"), dict) else None,
+            "tech_stack": company_details.get("tech_stack", []),
+            "icp_score": {
+                "total": icp_score,
+                "breakdown": self.memory.get("scores_breakdown", {})
+            },
+            "trigger_signals": [
+                {
+                    "signal_type": t.get("type", "UNKNOWN"),
+                    "headline": t.get("headline") or t.get("detail", ""),
+                    "date": t.get("date") or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                    "source": t.get("source") or "NewsAPI/Serper"
+                }
+                for t in self.memory.get("triggers", [])
+            ]
+        }
+        lead_summary["decision_makers"] = [
+            {
+                "full_name": c.get("full_name") or c.get("name", ""),
+                "title": c.get("title", ""),
+                "persona_match": c.get("persona_match", "CHRO"),
+                "email": c.get("email"),
+                "email_confidence": c.get("email_confidence"),
+                "phone": c.get("phone"),
+                "linkedin_url": c.get("linkedin_url") or c.get("linkedin"),
+                "source_url": c.get("source_url", ""),
+                "confidence": c.get("confidence", "MEDIUM"),
+                "extraction_method": c.get("extraction_method", "serper_snippet")
+            }
+            for c in contacts
+        ]
         
         # --- Write lead entity & influence links to Knowledge Graph ---
         try:
@@ -631,7 +691,6 @@ class DAGExecutor:
         
         # Launch the Tier 3 Kimi Browser Audit asynchronously as a non-blocking background task
         # This keeps the initial response latency ultra-low (under 3 seconds)
-        import asyncio
         asyncio.create_task(self._run_async_kimi_audit_and_update(
             lead_id=lead_id,
             company_name=company_name,

@@ -129,14 +129,20 @@ Respond strictly in JSON format."""
             )
             
             active_agents = proposed_agents
-            print(f"[Planner] LLM Plan: {plan_reasoning}")
-            print(f"[Planner] Active agents: {active_agents}")
-            if "skip_reasons" in plan_data:
-                for agent, reason in plan_data["skip_reasons"].items():
-                    print(f"[Planner] Skipped {agent}: {reason}")
+            try:
+                print(f"[Planner] LLM Plan: {plan_reasoning}")
+                print(f"[Planner] Active agents: {active_agents}")
+                if "skip_reasons" in plan_data:
+                    for agent, reason in plan_data["skip_reasons"].items():
+                        print(f"[Planner] Skipped {agent}: {reason}")
+            except Exception as pe:
+                pass
                     
         except Exception as e:
-            print(f"[Planner] LLM planning failed ({e}), using default pipeline")
+            try:
+                print(f"[Planner] LLM planning failed ({e}), using default pipeline")
+            except Exception:
+                print("[Planner] LLM planning failed (encoding error on print), using default pipeline")
         
         # Build the DAG from the active agent list
         tasks = {}
