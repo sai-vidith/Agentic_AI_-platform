@@ -238,6 +238,17 @@ class LLMService:
         system_msg = messages[0].get("content", "") if messages else ""
         prompt = messages[-1].get("content", "").lower() if messages else ""
         
+        # Helper: Extract company name if possible
+        import re
+        company_name = "Target Company"
+        comp_match = re.search(r"company\s+'?\"?([a-zA-Z0-9\s\.\-_]+)'?\"?", prompt)
+        if comp_match:
+            company_name = comp_match.group(1).strip()
+        else:
+            comp_match_for = re.search(r"for\s+'?\"?([a-zA-Z0-9\s\.\-_]+)'?\"?", prompt)
+            if comp_match_for:
+                company_name = comp_match_for.group(1).strip()
+
         # 0. Planner Agent Request — dynamic plan generation
         if "orchestration planner" in prompt or "available agents" in prompt:
             return json.dumps({
@@ -249,46 +260,144 @@ class LLMService:
                 "reasoning": "Full pipeline activated for unknown company. All agents needed for comprehensive lead qualification.",
                 "skip_reasons": {}
             })
+
+        # 1. Company Extraction / Startup Discovery
+        if "search results about" in prompt and "companies" in prompt:
+            if "cybersecurity" in prompt or "cyber" in prompt:
+                companies = ["Securden", "Wiz", "Armis", "Snyk", "SentinelOne"]
+            else:
+                companies = ["Keka HR", "Darwinbox", "Rippling", "Deel", "Gusto"]
+            return json.dumps({"companies": companies})
+
+        # 2. Trigger Monitor Agent
+        if "b2b trigger events" in prompt or "triggers_found" in prompt:
+            return json.dumps({
+                "triggers_found": [
+                    {"type": "funding", "detail": f"Recently raised Series B funding round for {company_name}", "confidence": 95},
+                    {"type": "hiring", "detail": f"Active job openings for security/HR administrators at {company_name}", "confidence": 88}
+                ]
+            })
+
+        # 3. Company Enricher Agent
+        if "enrichment specialist" in prompt or ("website" in prompt and "founded" in prompt and "hq" in prompt):
+            is_cyber = "cybersecurity" in prompt or "cyber" in prompt or "securden" in prompt or "wiz" in prompt or "armis" in prompt or "snyk" in prompt
+            return json.dumps({
+                "name": company_name,
+                "industry": "Cybersecurity Tools" if is_cyber else "HR SaaS / Fintech",
+                "employees": 180,
+                "founded": 2020,
+                "hq": "Chennai, India" if is_cyber else "Bengaluru, India",
+                "tech_stack": ["React", "AWS", "Python", "Docker"] if is_cyber else ["Node.js", "React", "PostgreSQL"],
+                "current_hr_tool": "Excel" if is_cyber else "Gusto",
+                "recent_funding": {
+                    "round": "Series A",
+                    "amount_usd": 15000000,
+                    "date": "2025-10-10"
+                },
+                "growth_rate": "40% headcount growth",
+                "website": f"https://www.{company_name.lower().replace(' ', '')}.com",
+                "linkedin": f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}",
+                "description": f"{company_name} is a leading provider of software solutions catering to enterprise accounts globally."
+            })
+
+        # 4. ICP Matcher Agent
+        if "icp score" in prompt or "ideal customer profile" in prompt:
+            return json.dumps({
+                "industry_score": 90,
+                "scale_score": 85,
+                "intent_score": 95,
+                "tech_score": 80,
+                "score": 88,
+                "justification": f"{company_name} matches all core Ideal Customer Profile metrics including industry vertical alignment, growth signals, and scaling headcount."
+            })
+
+        # 5. Shadow Agent Critique / Debate (Advocate & Critique)
+        if "shadow_agent" in prompt or "skeptical analyst" in prompt:
+            return json.dumps({
+                "counter_argument": f"{company_name} has strong momentum, but faces local domestic competition and could build features in-house.",
+                "reasons": [
+                    "Strong local competition in target geography",
+                    "In-house technical capabilities might lead them to build rather than buy",
+                    "Current sales cycles for their customer base are relatively long"
+                ],
+                "risk_confidence": 60,
+                "flaw_type": "competition_risk"
+            })
+
+        # 6. Persona Finder Agent / Matched Contacts
+        if "matched_contacts" in prompt:
+            is_cyber = "cybersecurity" in prompt or "cyber" in prompt or "ciso" in prompt or "cto" in prompt
+            if is_cyber:
+                contacts = [
+                    {
+                        "name": "Curtis Simpson",
+                        "title": "Chief Information Security Officer",
+                        "email": f"curtis.simpson@{company_name.lower().replace(' ', '')}.com",
+                        "phone": "+91-98401-23456",
+                        "linkedin": f"https://linkedin.com/in/curtissimpson-{company_name.lower().replace(' ', '')}",
+                        "joined_date": "2023-01-10",
+                        "persona_rank": 1
+                    },
+                    {
+                        "name": "Nadir Izrael",
+                        "title": "Chief Technology Officer",
+                        "email": f"nadir.izrael@{company_name.lower().replace(' ', '')}.com",
+                        "phone": "+91-98401-23457",
+                        "linkedin": f"https://linkedin.com/in/nadirizrael-{company_name.lower().replace(' ', '')}",
+                        "joined_date": "2021-06-15",
+                        "persona_rank": 2
+                    }
+                ]
+            else:
+                contacts = [
+                    {
+                        "name": "Sarah Jenkins",
+                        "title": "VP of People Operations",
+                        "email": f"sarah.jenkins@{company_name.lower().replace(' ', '')}.com",
+                        "phone": "+91-80560-12345",
+                        "linkedin": f"https://linkedin.com/in/sarahjenkins-people-{company_name.lower().replace(' ', '')}",
+                        "joined_date": "2022-09-01",
+                        "persona_rank": 1
+                    },
+                    {
+                        "name": "Rahul Kumar",
+                        "title": "Head of Human Resources",
+                        "email": f"rahul.kumar@{company_name.lower().replace(' ', '')}.com",
+                        "phone": "+91-80560-12346",
+                        "linkedin": f"https://linkedin.com/in/rahulkumar-hr-{company_name.lower().replace(' ', '')}",
+                        "joined_date": "2023-03-20",
+                        "persona_rank": 2
+                    }
+                ]
+            return json.dumps({"matched_contacts": contacts})
             
         # ReAct Loop support
         if "To use a tool, reply EXACTLY with:" in system_msg:
             has_tool_result = any("TOOL_RESULT:" in m.get("content", "") for m in messages)
             if not has_tool_result:
-                # First iteration: extract names from the user prompt
-                # Parse the contact name from the prompt dynamically
-                import re
                 name_match = re.search(r'\"name\":\s*\"([^\"]+)\"', prompt)
                 contact_name = name_match.group(1) if name_match else "Unknown Contact"
-                company_match = re.search(r'at\s+([\w\s]+?):', prompt) or re.search(r'company[\"\s:]+([\w\s]+)', prompt)
-                company_name = company_match.group(1).strip() if company_match else "Unknown Company"
                 return f'TOOL: search_linkedin({{"name": "{contact_name}", "company": "{company_name}"}})'
             else:
-                # Second iteration: parse contacts from the tool result and return as final answer
                 tool_result_msg = [m.get("content", "") for m in messages if "TOOL_RESULT:" in m.get("content", "")]
                 return f'FINAL_ANSWER: {tool_result_msg[-1].replace("TOOL_RESULT: ", "") if tool_result_msg else "[]"}'
-        
-        # 1. Shadow Agent Request
-        if "shadow_agent" in prompt or "skeptical analyst" in prompt:
-            confidence = random.randint(40, 75)
-            if "razorx" in prompt:
-                return '{"counter_argument": "RazorX Fintech is growing fast, but they only have 87 employees and are using Google Sheets. They might not be ready for enterprise-grade tooling, or they could build it themselves.", "reasons": ["Company size of 87 employees is on the lower-mid end of target profile", "Currently using Google Sheets, indicating potential reluctance to adopt complex HR software", "Hiring list shows a fulfilled key HR role which reduces immediate recruiting-only software urgency, requiring onboarding pivot"], "risk_confidence": 65, "flaw_type": "readiness_risk"}'
-            else:
-                return '{"counter_argument": "The company may have raised capital, but their historical hiring rate shows a slow sales-cycle target list. High risk of long conversion delay.", "reasons": ["Historical hiring speed indicates long conversion times", "Recent job fulfillment suggests immediate hiring focus has shifted to post-hire onboarding enablement", "Limited technical integrations available on their current website stack"], "risk_confidence": 62, "flaw_type": "sales_cycle_risk"}'
-                
-        # 2. ICP Matcher Request
-        if "icp score" in prompt or "ideal customer profile" in prompt:
-            if "razorx" in prompt:
-                return '{"score": 87, "justification": "RazorX matches all target criteria: Fintech sector, 87 employees (fits 20-500 bracket), and raised $15M Series A. Current tool is Google Sheets, indicating high urgency."}'
-            if "acme" in prompt:
-                return '{"score": 75, "justification": "AcmeCorp matches industry and employee count, but already uses BambooHR. Urgency is moderate."}'
-            return '{"score": 45, "justification": "Company size or industry is outside the sweet spot, or they are experiencing a headcount reduction."}'
 
-        # 3. Summary Agent Request
+        # Debate Adjudication
+        if "status" in prompt and "confirmed" in prompt and "divergence_warning" in prompt:
+            return json.dumps({
+                "status": "CONFIRMED",
+                "reason": f"Advocate successfully resolved compliance checks for {company_name}.",
+                "reasons": ["Fit is strong, no critical blocker."],
+                "confidence": 85,
+                "force_human_review": False
+            })
+
+        # 7. Actionable Outreach recommendation / Summary Agent Request
         if "actionable recommendation" in prompt or "outreach" in prompt:
-            return "Based on the enrichment data, I recommend immediate outreach. Highlight how our HR platform automates onboarding for high-growth tech startups. The company shows strong growth signals and fits the primary SaaS targeting profiles."
+            return f"Subject: Transforming Outreach for {company_name}\n\nHi Sarah,\n\nI noticed {company_name} is scaling operations post your Series A round. Our platform is designed to automate compliance checks and streamline workflows, which aligns with your current stack."
 
-        # 4. General fallback
-        return "I have processed the request and verified the company information. The lead has high growth signals and fits the primary SaaS targeting profiles."
+        # 8. General fallback
+        return f"I have processed the request and verified the company information for {company_name}. The lead has high growth signals and fits the primary SaaS targeting profiles."
 
 # Need json import for mock planner response
 import json

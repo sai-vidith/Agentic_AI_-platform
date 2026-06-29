@@ -36,18 +36,19 @@ class CompanyEnricherAgent(BaseNexusAgent):
         search_tasks = [self.search_tool.execute({"query": q}) for q in queries]
         search_results = await asyncio.gather(*search_tasks, return_exceptions=True)
         
-        # 3. Aggregate all retrieved search snippets and sources
+        # 3. Aggregate all retrieved search snippets and sources (limited to top 10 to prevent token issues)
         raw_text_corpus = []
         articles = []
         for idx, res in enumerate(search_results):
             if isinstance(res, Exception) or not res or not hasattr(res, "data"):
                 continue
             for item in res.data.get("results", []):
-                title = item.get("title", "Search Source")
-                snippet = item.get("snippet", "")
+                title = item.get("title", "Search Source")[:100]
+                snippet = item.get("snippet", "")[:300]
                 link = item.get("link", "")
-                raw_text_corpus.append(f"Source [{title}] ({link}): {snippet}")
-                if link:
+                if len(raw_text_corpus) < 10:
+                    raw_text_corpus.append(f"Source [{title}] ({link}): {snippet}")
+                if link and len(articles) < 10:
                     articles.append({
                         "title": f"Web: {title}",
                         "url": link,

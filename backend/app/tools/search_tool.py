@@ -183,7 +183,15 @@ async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
                 seen_links.add(link)
                 merged_results.append(item)
                 
-    results_text = json.dumps(merged_results[:25]) # Provide up to 25 search result snippets
+    # Keep only the top 10 results and truncate snippets to prevent exceeding model limits
+    clean_results = []
+    for item in merged_results[:10]:
+        clean_results.append({
+            "title": item.get("title", "")[:100],
+            "snippet": item.get("snippet", "")[:300],
+            "link": item.get("link", "")
+        })
+    results_text = json.dumps(clean_results)
     
     prompt = f"""
     Analyze the following search results about '{domain_clean}' startups:

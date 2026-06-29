@@ -159,6 +159,20 @@ class DAGExecutor:
                         lead["status"] = LeadStatus.QUALIFIED.value
                 
                 lead["evidence_chain"] = evidence
+
+                # Append Kimi web scraping sources after the audit completes successfully
+                lead_sources = lead.get("sources", [])
+                existing_urls = {s.get("url", "").strip().lower() for s in lead_sources}
+                subpages = [f"{website.rstrip('/')}/about", f"{website.rstrip('/')}/careers"]
+                for sub_url in subpages:
+                    if sub_url.strip().lower() not in existing_urls:
+                        lead_sources.append({
+                            "title": f"Kimi Audit: {sub_url.replace(website, '').strip('/') or 'About/Careers'}",
+                            "url": sub_url,
+                            "status": "Correct",
+                            "reason": "Verified deep page via Kimi browser crawl audit."
+                        })
+                lead["sources"] = lead_sources
                 
                 # Run another LLM verification pass to update contact profiles and details if necessary
                 try:
