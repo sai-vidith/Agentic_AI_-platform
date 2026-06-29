@@ -1,4 +1,4 @@
-import json
+﻿import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -35,6 +35,8 @@ if SQLALCHEMY_AVAILABLE:
         domain = Column(String, default="hr_saas")
         pipeline_log = Column(Text, default="[]")
         data_quality_flags = Column(Text, default="[]")
+        company = Column(Text, default="{}")
+        decision_makers = Column(Text, default="[]")
         created_at = Column(DateTime, default=datetime.utcnow)
         updated_at = Column(DateTime, default=datetime.utcnow)
 
@@ -90,6 +92,10 @@ class EventStore:
                             conn.execute(text("ALTER TABLE leads ADD COLUMN pipeline_log TEXT DEFAULT '[]'"))
                         if "data_quality_flags" not in columns:
                             conn.execute(text("ALTER TABLE leads ADD COLUMN data_quality_flags TEXT DEFAULT '[]'"))
+                        if "company" not in columns:
+                            conn.execute(text("ALTER TABLE leads ADD COLUMN company TEXT DEFAULT '{}'"))
+                        if "decision_makers" not in columns:
+                            conn.execute(text("ALTER TABLE leads ADD COLUMN decision_makers TEXT DEFAULT '[]'"))
                 except Exception as ex:
                     print(f"Error altering database tables: {ex}")
                 
@@ -165,6 +171,8 @@ class EventStore:
                 lead.domain = lead_data.get("domain", "hr_saas")
                 lead.pipeline_log = json.dumps(lead_data.get("pipeline_log", []))
                 lead.data_quality_flags = json.dumps(lead_data.get("data_quality_flags", []))
+                lead.company = json.dumps(lead_data.get("company", {}))
+                lead.decision_makers = json.dumps(lead_data.get("decision_makers", []))
                 lead.updated_at = datetime.utcnow()
                 session.commit()
 
@@ -238,6 +246,8 @@ class EventStore:
             "domain": getattr(lead, 'domain', 'hr_saas') or 'hr_saas',
             "pipeline_log": json.loads(lead.pipeline_log) if getattr(lead, 'pipeline_log', None) else [],
             "data_quality_flags": json.loads(lead.data_quality_flags) if getattr(lead, 'data_quality_flags', None) else [],
+            "company": json.loads(lead.company) if getattr(lead, 'company', None) else {},
+            "decision_makers": json.loads(lead.decision_makers) if getattr(lead, 'decision_makers', None) else [],
             "created_at": lead.created_at.isoformat(),
             "updated_at": lead.updated_at.isoformat()
         }
@@ -346,3 +356,5 @@ class EventStore:
 
 # Shared instance
 event_store = EventStore()
+
+

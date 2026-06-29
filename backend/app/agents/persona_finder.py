@@ -1,7 +1,8 @@
-import json
+﻿import json
 from typing import Dict, Any, List
 from app.agents.base_nexus_agent import BaseNexusAgent, notify_agent_event
 from app.core.schemas import WSEventTypes
+from app.agents.enrichment_utils import dedupe_contacts, extract_domain
 
 class PersonaFinderAgent(BaseNexusAgent):
     """Filters and identifies key decision makers matching YAML persona definitions using live web searches."""
@@ -20,16 +21,7 @@ class PersonaFinderAgent(BaseNexusAgent):
         data_quality_flags = []
         
         # Clean company domain
-        company_domain = company_details.get("website", "") or company_details.get("domain", "")
-        if company_domain:
-            from urllib.parse import urlparse
-            if not company_domain.startswith("http"):
-                company_domain = "https://" + company_domain
-            try:
-                parsed = urlparse(company_domain)
-                company_domain = parsed.netloc.replace("www.", "")
-            except Exception:
-                company_domain = ""
+        company_domain = extract_domain(company_details.get("website", "") or company_details.get("domain", ""))
 
         # Extract title patterns from active persona guidelines YAML
         title_patterns = []
@@ -110,13 +102,16 @@ class PersonaFinderAgent(BaseNexusAgent):
         except Exception as e:
             print(f"[PersonaFinder] Match parsing failed: {e}")
             
+        matched = dedupe_contacts(matched, default_source_url=company_details.get("website", ""))
+
         if matched:
             high_count = sum(1 for c in matched if c.get("confidence") == "HIGH")
             med_count = sum(1 for c in matched if c.get("confidence") == "MEDIUM")
             pipeline_log.append(f"STAGE_3: {high_count} HIGH + {med_count} MEDIUM contacts found")
         else:
             # Fallback to seed details if search parsing yielded nothing
-            raw_contacts = task_input.get("raw_enrichment_data", {}).get("contacts", [])
+            raw_enrichment = task_input.get("raw_enrichment_data", {}) or {}
+            raw_contacts = raw_enrichment.get("contacts", []) if isinstance(raw_enrichment, dict) else []
             for c in raw_contacts:
                 matched.append({
                     "name": c.get("name"),
@@ -157,14 +152,18 @@ class PersonaFinderAgent(BaseNexusAgent):
                         "persona_rank": i + 1
                     })
             if cleaned:
-                return {"contacts": cleaned}
+                return {"contacts": dedupe_contacts(cleaned)}
         
         # Last resort fallback using LLM knowledge
-        return {"contacts": [{
+        return {"contacts": dedupe_contacts([{
             "name": f"VP of People at {company}",
             "title": "VP of People",
             "email": "unknown",
             "phone": "unknown",
             "linkedin": "unknown",
             "persona_rank": 1
-        }]}
+        }])}
+
+
+
+

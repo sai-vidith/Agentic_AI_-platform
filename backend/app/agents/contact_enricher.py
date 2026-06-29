@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+﻿from typing import Dict, Any, List
 import json
 import asyncio
 from app.agents.base_nexus_agent import BaseNexusAgent, notify_agent_event
@@ -7,6 +7,7 @@ from app.governance.pii_redactor import pii_redactor
 from app.governance.tee_layer import TEEVault
 from app.tools.search_linkedin import search_linkedin
 from app.tools.search_tool import SearchTool
+from app.agents.enrichment_utils import dedupe_contacts, extract_domain, normalize_contact
 
 class ContactEnricherAgent(BaseNexusAgent):
     """Upgraded Contact Enricher Agent performing parallel search lookups, extraction, and secure TEE storage."""
@@ -28,16 +29,7 @@ class ContactEnricherAgent(BaseNexusAgent):
         articles = []
         
         # Clean company domain
-        company_domain = company_details.get("website", "") or company_details.get("domain", "")
-        if company_domain:
-            from urllib.parse import urlparse
-            if not company_domain.startswith("http"):
-                company_domain = "https://" + company_domain
-            try:
-                parsed = urlparse(company_domain)
-                company_domain = parsed.netloc.replace("www.", "")
-            except Exception:
-                company_domain = ""
+        company_domain = extract_domain(company_details.get("website", "") or company_details.get("domain", ""))
 
         # Run global company queries in parallel (email pattern + phone)
         import asyncio
@@ -72,7 +64,7 @@ class ContactEnricherAgent(BaseNexusAgent):
                     email_pattern = "first_last"
                 else:
                     email_pattern = "first"
-                pipeline_log.append(f"STAGE_4: email pattern inferred → {email_pattern}@{company_domain}")
+                pipeline_log.append(f"STAGE_4: email pattern inferred â†’ {email_pattern}@{company_domain}")
 
         # Parse global company phone
         phone_to_store = None
@@ -175,13 +167,15 @@ class ContactEnricherAgent(BaseNexusAgent):
             redacted_email = pii_redactor.redact_text(email_to_store) if email_to_store else None
             redacted_phone = pii_redactor.redact_text(phone_to_store) if phone_to_store else None
 
-            return {
+            return normalize_contact({
+                "name": name,
                 "full_name": name,
                 "title": title,
                 "persona_match": c.get("persona_match") or ("CHRO" if "people" in title.lower() or "hr" in title.lower() else "CTO"),
                 "email": redacted_email,
                 "email_confidence": email_confidence,
                 "phone": redacted_phone,
+                "linkedin": resolved_li,
                 "linkedin_url": resolved_li,
                 "source_url": c.get("source_url") or company_details.get("website", ""),
                 "confidence": c.get("confidence") or "MEDIUM",
@@ -189,11 +183,16 @@ class ContactEnricherAgent(BaseNexusAgent):
                 "pii_fields_redacted": ["email", "phone"] if email_to_store or phone_to_store else [],
                 "raw_email": encrypted_email,
                 "raw_phone": encrypted_phone
-            }
+            }, default_source_url=company_details.get("website", ""))
 
         # Run contact enrichment for all contacts in parallel
         enrich_tasks = [enrich_single_contact(c) for c in contacts]
-        enriched_contacts = await asyncio.gather(*enrich_tasks)
+        enriched_results = await asyncio.gather(*enrich_tasks, return_exceptions=True)
+        enriched_contacts = [
+            c for c in enriched_results
+            if isinstance(c, dict) and (c.get("name") or c.get("full_name"))
+        ]
+        enriched_contacts = dedupe_contacts(enriched_contacts, default_source_url=company_details.get("website", ""))
         
         pipeline_log.append(f"STAGE_4: {sum(1 for c in enriched_contacts if c.get('email'))} email confirmed/inferred, phone extraction processed")
 
@@ -208,4 +207,7 @@ class ContactEnricherAgent(BaseNexusAgent):
 
     async def execute_with_fallback(self, task_input: Dict[str, Any]) -> Dict[str, Any]:
         contacts = task_input.get("contacts", [])
-        return {"contacts": contacts}
+        return {"contacts": dedupe_contacts(contacts)}
+
+
+

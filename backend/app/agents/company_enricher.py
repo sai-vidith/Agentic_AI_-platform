@@ -1,10 +1,17 @@
-from typing import Dict, Any, List
+﻿from typing import Dict, Any, List
 import json
 import asyncio
 from app.agents.base_nexus_agent import BaseNexusAgent, notify_agent_event
 from app.core.schemas import WSEventTypes
 from app.tools.search_tool import SearchTool
 from app.tools.enrichment_tool import EnrichmentTool
+from app.agents.enrichment_utils import (
+    dedupe_contacts,
+    is_aggregator_url,
+    is_shallow_company_url,
+    normalize_company_details,
+    normalize_url,
+)
 
 class CompanyEnricherAgent(BaseNexusAgent):
     """Refined Company Enricher Agent using intensive multi-source search and LLM extraction."""
@@ -79,7 +86,7 @@ class CompanyEnricherAgent(BaseNexusAgent):
                 if search_fallback and hasattr(search_fallback, "data") and search_fallback.data.get("results"):
                     for item in search_fallback.data["results"]:
                         link = item.get("link", "")
-                        if link and not is_aggregator(link):
+                        if link and not is_aggregator_url(link):
                             resolved_website = link
                             break
                 
@@ -101,13 +108,13 @@ class CompanyEnricherAgent(BaseNexusAgent):
         if not resolved_website and ddg_results:
             for item in ddg_results:
                 url = item.get("link", "")
-                if url and not is_aggregator(url) and is_path_shallow(url):
+                if url and not is_aggregator_url(url) and is_shallow_company_url(url):
                     resolved_website = url
                     break
             if not resolved_website:
                 for item in ddg_results:
                     url = item.get("link", "")
-                    if url and not is_aggregator(url):
+                    if url and not is_aggregator_url(url):
                         resolved_website = url
                         break
                         
@@ -196,22 +203,10 @@ class CompanyEnricherAgent(BaseNexusAgent):
         except Exception as e:
             print(f"[company_enricher] Chat4Data extraction failed: {e}")
 
-        # Enforce anti-hallucination constraints on outputs
-        refined_company["website"] = resolved_website
-        refined_company["linkedin"] = linkedin_company_url
-        
-        # Ensure correct type formats
-        if refined_company.get("employees") and not isinstance(refined_company.get("employees"), int):
-            try:
-                refined_company["employees"] = int(refined_company["employees"])
-            except Exception:
-                refined_company["employees"] = None
-        if refined_company.get("founded") and not isinstance(refined_company.get("founded"), int):
-            try:
-                refined_company["founded"] = int(refined_company["founded"])
-            except Exception:
-                refined_company["founded"] = None
-
+        # Enforce anti-hallucination constraints and normalize the shared company contract.
+        refined_company = normalize_company_details(company_name, refined_company)
+        refined_company["website"] = normalize_url(resolved_website)
+        refined_company["linkedin"] = normalize_url(linkedin_company_url, linkedin_kind="company")
         # Merge discovered contacts with seed contacts
         final_contacts = []
         seen_names = set()
@@ -238,11 +233,13 @@ class CompanyEnricherAgent(BaseNexusAgent):
                     "role": c.get("role") or "Influencer"
                 })
 
+        final_contacts = dedupe_contacts(final_contacts, default_source_url=refined_company.get("website", ""))
+
         await notify_agent_event(WSEventTypes.AGENT_COMPLETED, self.name, target=company_name, data={"output": refined_company})
         
         return {
             "company_details": refined_company,
-            "raw_enrichment_data": refined_company,
+            "raw_enrichment_data": {"company": refined_company, "contacts": final_contacts},
             "contacts": final_contacts,
             "articles": articles,
             "pipeline_log": pipeline_log,
@@ -266,7 +263,11 @@ class CompanyEnricherAgent(BaseNexusAgent):
         }
         return {
             "company_details": fallback_details,
-            "raw_enrichment_data": {},
+            "raw_enrichment_data": {"company": fallback_details, "contacts": []},
             "contacts": [],
             "articles": []
         }
+
+
+
+
