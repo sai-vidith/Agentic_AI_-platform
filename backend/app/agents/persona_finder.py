@@ -78,55 +78,29 @@ class PersonaFinderAgent(BaseNexusAgent):
                 "results": q_results
             })
 
-        # Stage 3d: Call LLM to extract and cross-validate decision makers
-        prompt = f"""
-        Identify the real, current names, titles, and LinkedIn profile URLs of key decision makers at '{company_name}'.
-        
-        Target Persona Guidelines:
-        {json.dumps(persona_rules, indent=2)}
-        
-        Company Context:
-        - Employees count: {company_details.get("employees")}
-        - Industry: {company_details.get("industry")}
-        - Domain: {company_domain}
-        
-        Target Personas (in priority order):
-        1. CHRO / Chief People Officer / VP People / Head of People
-        2. CTO / VP Engineering / Head of Engineering
-        3. CEO / Co-Founder (only if company < 200 employees. Employees count: {company_details.get("employees")})
-        4. CFO / VP Finance (only for fintech targets)
-        
-        Use these search results from multiple independent queries as context:
-        {json.dumps(sources_data, indent=2)}
-        
-        Execute cross-validation (Stage 3d):
-        - HIGH confidence: Name AND exact title appear in 2 or more separate sources.
-        - MEDIUM confidence: Name AND exact title appear in only 1 source.
-        - LOW confidence: Name is found, but the title or active employment at {company_name} is unconfirmed.
-        
-        Do NOT return placeholder names like "John Doe".
-        For each decision maker, identify the persona_match (CHRO | CTO | CEO | CFO).
-        
-        Respond in JSON:
-        {{
-          "matched_contacts": [
-            {{
-              "name": "Full Name",
-              "title": "Exact Corporate Title",
-              "persona_match": "CHRO | CTO | CEO | CFO",
-              "confidence": "HIGH | MEDIUM | LOW",
-              "source_url": "the URL of the source page where name was found",
-              "extraction_method": "serper_snippet"
-            }}
-          ]
-        }}
-        """
-        
         matched = []
         try:
-            content = await self.call_llm(prompt, response_format={"type": "json_object"})
-            data = json.loads(content)
-            matched = data.get("matched_contacts", [])
+            from app.tools.chat4data import chat4data
+            chat4_res = await chat4data.execute({
+                "text": json.dumps(sources_data),
+                "schema_type": "contacts",
+                "company_name": company_name,
+                "domain": company_details.get("domain", "hr_saas")
+            })
+            if chat4_res and not chat4_res.error:
+                extracted_contacts = chat4_res.data.get("contacts", [])
+                for ec in extracted_contacts:
+                    matched.append({
+                        "name": ec.get("name"),
+                        "title": ec.get("title", "Executive"),
+                        "persona_match": ec.get("persona_match") or "CTO",
+                        "confidence": ec.get("confidence") or "MEDIUM",
+                        "source_url": ec.get("linkedin") or company_details.get("website", ""),
+                        "extraction_method": "scrapy_beautifulsoup_search",
+                        "linkedin": ec.get("linkedin"),
+                        "email": ec.get("email", "unknown"),
+                        "phone": ec.get("phone", "unknown")
+                    })
             
             # Anti-hallucination checks
             matched = [

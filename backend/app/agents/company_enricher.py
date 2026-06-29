@@ -51,192 +51,150 @@ class CompanyEnricherAgent(BaseNexusAgent):
             except Exception:
                 return False
 
-        # --- Parallel execution of all searches & database lookup (Latency Optimization) ---
-        queries = [
-            f'"{company_name}" official website',
-            f'"{company_name}" site:linkedin.com/company',
-            f'"{company_name}" headcount growth 2024 OR 2025',
-            f"{company_name} company overview website industry head office",
-            f"{company_name} funding rounds tech stack tools"
-        ]
-        
-        import asyncio
-        tasks = [self.search_tool.execute({"query": q}) for q in queries] + [self.enrichment_tool.execute({"company_name": company_name, "domain": task_input.get("domain")})]
-        completed_tasks = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        search_res = completed_tasks[0]
-        li_search_res = completed_tasks[1]
-        headcount_res = completed_tasks[2]
-        other_results = [completed_tasks[3], completed_tasks[4]]
-        db_res = completed_tasks[5]
+        # --- 1. Primary Search using DuckDuckGo Search (DDGS) ---
+        ddg_results = []
+        ddg_failed = False
+        pipeline_log.append("STAGE_0: Attempting primary DuckDuckGo search (DDGS)")
+        try:
+            ddg_res = await self.search_tool.execute({"query": f'"{company_name}" website OR CEO OR CTO OR contact details', "force_ddg": True})
+            if ddg_res and hasattr(ddg_res, "data") and ddg_res.data.get("results"):
+                ddg_results = ddg_res.data["results"]
+                pipeline_log.append(f"STAGE_0: DDGS search returned {len(ddg_results)} results.")
+            else:
+                ddg_failed = True
+                pipeline_log.append("STAGE_0: DDGS search returned zero results.")
+        except Exception as e:
+            ddg_failed = True
+            pipeline_log.append(f"STAGE_0: DDGS search failed: {e}")
 
-        # --- STAGE 1: CANONICAL DOMAIN RESOLUTION ---
+        # --- 2. Fallback to BeautifulSoup Scraping if DDGS fails ---
+        scraped_text = ""
         resolved_website = None
-        resolved_domain = None
         
-        results = search_res.data.get("results", []) if search_res and not isinstance(search_res, Exception) and hasattr(search_res, "data") else []
-        
-        for item in results:
-            url = item.get("link", "")
-            if not url:
-                continue
+        if ddg_failed or not ddg_results:
+            pipeline_log.append("STAGE_1: DDGS failed. Initiating BeautifulSoup search and scrape fallback...")
+            try:
+                # Find canonical link using search tool fallback
+                search_fallback = await self.search_tool.execute({"query": company_name})
+                if search_fallback and hasattr(search_fallback, "data") and search_fallback.data.get("results"):
+                    for item in search_fallback.data["results"]:
+                        link = item.get("link", "")
+                        if link and not is_aggregator(link):
+                            resolved_website = link
+                            break
                 
-            if is_aggregator(url):
-                pipeline_log.append(f"AGGREGATOR_SKIP: {url} — not the target company's owned domain")
-                continue
+                if resolved_website:
+                    pipeline_log.append(f"STAGE_1: Found target website for scraping: {resolved_website}")
+                    from app.tools.scraper_tool import ScraperTool
+                    scraper = ScraperTool()
+                    # Perform scrape using BeautifulSoup (via scraper tool)
+                    scrape_res = await scraper.execute({"url": resolved_website})
+                    if scrape_res and hasattr(scrape_res, "data") and scrape_res.data.get("text"):
+                        scraped_text = scrape_res.data["text"]
+                        pipeline_log.append(f"STAGE_1: BeautifulSoup successfully scraped {len(scraped_text)} characters.")
+                    else:
+                        pipeline_log.append("STAGE_1: BeautifulSoup scrape returned no text.")
+            except Exception as ex:
+                pipeline_log.append(f"STAGE_1: BeautifulSoup fallback failed: {ex}")
                 
-            if not is_path_shallow(url):
-                continue
-                
-            # Perform a basic check for aggregator boilerplate in snippet
-            snippet = item.get("snippet", "").lower()
-            if any(p in snippet for p in ["is a leading provider", "profile overview", "global data", "globaldata"]):
-                pipeline_log.append(f"AGGREGATOR_SKIP: {url} — description contains aggregator boilerplate")
-                continue
-                
-            resolved_website = url
-            resolved_domain = get_domain(url)
-            pipeline_log.append(f"STAGE_1: canonical domain resolved → {resolved_domain}")
-            break
-            
-        if not resolved_website:
-            # Try next non-aggregator
-            for item in results:
+        # Resolve website from DDG results if not already resolved
+        if not resolved_website and ddg_results:
+            for item in ddg_results:
                 url = item.get("link", "")
-                if url and not is_aggregator(url):
+                if url and not is_aggregator(url) and is_path_shallow(url):
                     resolved_website = url
-                    resolved_domain = get_domain(url)
-                    pipeline_log.append(f"STAGE_1: canonical domain resolved → {resolved_domain} (fallback)")
                     break
-                    
+            if not resolved_website:
+                for item in ddg_results:
+                    url = item.get("link", "")
+                    if url and not is_aggregator(url):
+                        resolved_website = url
+                        break
+                        
         if not resolved_website:
             resolved_domain = f"{company_name.lower().replace(' ', '')}.com"
             resolved_website = f"https://www.{resolved_domain}"
-            pipeline_log.append(f"STAGE_1: canonical domain fallback default → {resolved_domain}")
-            data_quality_flags.append(f"CANONICAL_DOMAIN_FALLBACK: using default {resolved_domain}")
+            pipeline_log.append(f"STAGE_1: Canonical website default fallback: {resolved_website}")
+            data_quality_flags.append(f"CANONICAL_DOMAIN_FALLBACK: using default {resolved_website}")
+        else:
+            pipeline_log.append(f"STAGE_1: Canonical website resolved: {resolved_website}")
 
-        # --- STAGE 2: LINKEDIN COMPANY SLUG RESOLUTION (Failure 2) ---
+        # Try to resolve corporate LinkedIn company slug from search results
         linkedin_company_url = None
-        linkedin_slug = None
-        
-        li_results = li_search_res.data.get("results", []) if li_search_res and not isinstance(li_search_res, Exception) and hasattr(li_search_res, "data") else []
-        
-        attempts = 0
-        for item in li_results:
+        all_found_results = ddg_results if ddg_results else []
+        if not all_found_results:
+            # Check fallback results
+            try:
+                li_fallback = await self.search_tool.execute({"query": f'"{company_name}" site:linkedin.com/company'})
+                if li_fallback and hasattr(li_fallback, "data") and li_fallback.data.get("results"):
+                    all_found_results.extend(li_fallback.data["results"])
+            except Exception:
+                pass
+                
+        import re
+        for item in all_found_results:
             url = item.get("link", "")
             if not url:
                 continue
-                
-            import re
             match = re.search(r"linkedin\.com/company/([a-z0-9\-]+)", url.lower())
             if match:
                 slug = match.group(1).strip("/")
-                attempts += 1
-                if slug in ("unavailable", "search", "jobs", "pub", "login"):
-                    pipeline_log.append(f"LINKEDIN_SKIP: slug was /{slug}/ — retried")
-                    if attempts >= 3:
-                        break
-                    continue
-                
-                linkedin_slug = slug
-                linkedin_company_url = f"https://www.linkedin.com/company/{slug}"
-                pipeline_log.append(f"STAGE_2: LinkedIn company slug resolved → {slug}")
-                break
-                
+                if slug not in ("unavailable", "search", "jobs", "pub", "login"):
+                    linkedin_company_url = f"https://www.linkedin.com/company/{slug}"
+                    pipeline_log.append(f"STAGE_2: LinkedIn corporate slug resolved: {slug}")
+                    break
+
         if not linkedin_company_url:
-            pipeline_log.append(f"LINKEDIN_UNRESOLVED: {company_name}")
-            data_quality_flags.append(f"LINKEDIN_UNRESOLVED: LinkedIn profile not found for {company_name}")
+            pipeline_log.append(f"STAGE_2: LinkedIn company page unresolved.")
+            data_quality_flags.append(f"LINKEDIN_UNRESOLVED: Corporate LinkedIn URL not found for {company_name}")
 
-        # --- STAGE 2: TRIGGER / SIGNAL DETECTION (headcount growth) ---
-        employee_growth_rate = "Moderate"
-        hc_results = headcount_res.data.get("results", []) if headcount_res and not isinstance(headcount_res, Exception) and hasattr(headcount_res, "data") else []
-        
-        hc_corpus = "\n".join([f"Source: {item.get('title')}: {item.get('snippet')}" for item in hc_results[:3]])
-
-        # Gather general seed data and live search data for core enrichment
+        # --- 3. Build context for LLM extraction pass ---
+        db_res = await self.enrichment_tool.execute({"company_name": company_name})
         seed_data = {}
         seed_contacts = []
         if db_res and not isinstance(db_res, Exception) and hasattr(db_res, "data"):
             seed_data = db_res.data.get("company", {})
             seed_contacts = db_res.data.get("contacts", [])
-        
-        # Build live search context
-        queries = [
-            f"{company_name} company overview website industry head office",
-            f"{company_name} funding rounds tech stack tools"
-        ]
-        search_tasks = [self.search_tool.execute({"query": q}) for q in queries]
-        other_results = await asyncio.gather(*search_tasks, return_exceptions=True)
-        
+
+        # Compile corpus string
         raw_text_corpus = []
         articles = []
-        for res in other_results:
-            if isinstance(res, Exception) or not res or not hasattr(res, "data"):
-                continue
-            for item in res.data.get("results", []):
-                title = item.get("title", "Search Source")[:100]
+        if ddg_results:
+            for item in ddg_results[:6]:
+                title = item.get("title", "")[:100]
                 snippet = item.get("snippet", "")[:300]
                 link = item.get("link", "")
-                
-                if is_aggregator(link):
-                    pipeline_log.append(f"AGGREGATOR_SKIP: {link} — not the target company's owned domain")
-                    continue
-                    
-                if len(raw_text_corpus) < 10:
+                if link:
                     raw_text_corpus.append(f"Source [{title}] ({link}): {snippet}")
-                if link and len(articles) < 10:
                     articles.append({
-                        "title": f"Web: {title}",
+                        "title": f"DDG: {title}",
                         "url": link,
-                        "source": "Google/DDG Search"
+                        "source": "DuckDuckGo Search"
                     })
-                    
+        if scraped_text:
+            raw_text_corpus.append(f"Scraped Website Content of {resolved_website}:\n{scraped_text[:3000]}")
+            articles.append({
+                "title": f"Website Scraped: {company_name}",
+                "url": resolved_website,
+                "source": "BeautifulSoup Scraper"
+            })
+            
         corpus_string = "\n".join(raw_text_corpus)
 
-        refinement_prompt = f"""
-        You are a B2B Enrichment Specialist. Analyze the seed data and raw search snippets below to build an accurate profile of '{company_name}'.
-        
-        Seed Data:
-        {json.dumps(seed_data, indent=2)}
-        
-        Live Search Context:
-        {corpus_string}
-        
-        Headcount context:
-        {hc_corpus}
-        
-        Extract and return a single, unified JSON object. If direct web search info contradicts the seed details, prefer the web search data.
-        Return this exact JSON structure:
-        {{
-          "name": "{company_name}",
-          "industry": "e.g. Enterprise Software / Fintech",
-          "employees": integer or null,
-          "founded": integer or null,
-          "hq": "City, Country",
-          "tech_stack": ["React", "AWS", "Workday", etc],
-          "current_hr_tool": "e.g. Workday / Gusto / Excel",
-          "recent_funding": {{
-            "round": "e.g. Series A or null",
-            "amount_usd": integer or null,
-            "date": "YYYY-MM-DD or null"
-          }},
-          "growth_rate": "e.g. 25% headcount growth or null",
-          "website": "{resolved_website}",
-          "linkedin": "{linkedin_company_url or ''}",
-          "description": "2-3 sentence overview of what the company does"
-        }}
-        """
-
         refined_company = seed_data
+        discovered_contacts = []
         try:
-            llm_response = await self.call_llm(
-                prompt=refinement_prompt,
-                system_message="You are a strict data scientist. Output ONLY valid JSON. No prose. No sentence fragments in numeric fields.",
-                response_format={"type": "json_object"}
-            )
-            refined_company = json.loads(llm_response)
+            from app.tools.chat4data import chat4data
+            chat4_res = await chat4data.execute({
+                "text": corpus_string,
+                "company_name": company_name,
+                "domain": self.domain if hasattr(self, "domain") else "hr_saas"
+            })
+            if chat4_res and not chat4_res.error:
+                refined_company = chat4_res.data.get("company_details", seed_data)
+                discovered_contacts = chat4_res.data.get("contacts", [])
         except Exception as e:
-            print(f"[company_enricher] LLM refinement failed: {e}")
+            print(f"[company_enricher] Chat4Data extraction failed: {e}")
 
         # Enforce anti-hallucination constraints on outputs
         refined_company["website"] = resolved_website
@@ -254,12 +212,38 @@ class CompanyEnricherAgent(BaseNexusAgent):
             except Exception:
                 refined_company["founded"] = None
 
+        # Merge discovered contacts with seed contacts
+        final_contacts = []
+        seen_names = set()
+        
+        # 1. First add seed contacts
+        for c in seed_contacts:
+            name = c.get("name", "").strip().lower()
+            if name:
+                seen_names.add(name)
+                final_contacts.append(c)
+                
+        # 2. Add newly discovered contacts from LLM extraction
+        for c in discovered_contacts:
+            name = c.get("name", "").strip().lower()
+            if name and name not in seen_names:
+                seen_names.add(name)
+                final_contacts.append({
+                    "name": c.get("name"),
+                    "title": c.get("title", "Executive"),
+                    "email": c.get("email") or "unknown",
+                    "phone": c.get("phone") or "unknown",
+                    "linkedin": c.get("linkedin") or "unknown",
+                    "persona_rank": len(final_contacts) + 1,
+                    "role": c.get("role") or "Influencer"
+                })
+
         await notify_agent_event(WSEventTypes.AGENT_COMPLETED, self.name, target=company_name, data={"output": refined_company})
         
         return {
             "company_details": refined_company,
             "raw_enrichment_data": refined_company,
-            "contacts": seed_contacts,
+            "contacts": final_contacts,
             "articles": articles,
             "pipeline_log": pipeline_log,
             "data_quality_flags": data_quality_flags

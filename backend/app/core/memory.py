@@ -24,7 +24,11 @@ class VectorStoreManager:
         if CHROMA_AVAILABLE:
             try:
                 CHROMA_PATH.mkdir(parents=True, exist_ok=True)
-                self.chroma_client = chromadb.PersistentClient(path=str(CHROMA_PATH))
+                from chromadb.config import Settings as ChromaSettings
+                self.chroma_client = chromadb.PersistentClient(
+                    path=str(CHROMA_PATH),
+                    settings=ChromaSettings(anonymized_telemetry=False)
+                )
                 self.collection = self.chroma_client.get_or_create_collection(name="nexusai_leads")
             except Exception as e:
                 print(f"Error initializing ChromaDB: {e}. Falling back to in-memory store.")

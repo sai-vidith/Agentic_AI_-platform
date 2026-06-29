@@ -125,21 +125,33 @@ class WorkflowTracer:
         if trace_id not in self.traces:
             return []
         
-        spans = sorted(self.traces[trace_id], key=lambda s: s.start_time)
+        spans = sorted(self.traces[trace_id], key=lambda s: str(s.start_time))
         if not spans:
             return []
         
         trace_start = spans[0].start_time
         waterfall = []
         for span in spans:
-            try:
-                start_epoch = datetime.fromisoformat(span.start_time.replace('Z', '+00:00')).timestamp()
-            except Exception:
-                start_epoch = datetime.now(timezone.utc).timestamp()
-                
-            try:
-                end_epoch = datetime.fromisoformat(span.end_time.replace('Z', '+00:00')).timestamp() if span.end_time else start_epoch
-            except Exception:
+            if isinstance(span.start_time, datetime):
+                start_dt = span.start_time
+            else:
+                try:
+                    start_dt = datetime.fromisoformat(str(span.start_time).replace('Z', '+00:00'))
+                except Exception:
+                    start_dt = datetime.now(timezone.utc)
+                    
+            start_epoch = start_dt.timestamp()
+            
+            if span.end_time:
+                if isinstance(span.end_time, datetime):
+                    end_dt = span.end_time
+                else:
+                    try:
+                        end_dt = datetime.fromisoformat(str(span.end_time).replace('Z', '+00:00'))
+                    except Exception:
+                        end_dt = start_dt
+                end_epoch = end_dt.timestamp()
+            else:
                 end_epoch = start_epoch
                 
             waterfall.append({
@@ -154,10 +166,10 @@ class WorkflowTracer:
         return waterfall
     
     @staticmethod
-    def _time_diff_ms(start_iso: str, end_iso: str) -> int:
+    def _time_diff_ms(start_iso: Any, end_iso: Any) -> int:
         try:
-            start = datetime.fromisoformat(start_iso)
-            end = datetime.fromisoformat(end_iso)
+            start = start_iso if isinstance(start_iso, datetime) else datetime.fromisoformat(str(start_iso).replace('Z', '+00:00'))
+            end = end_iso if isinstance(end_iso, datetime) else datetime.fromisoformat(str(end_iso).replace('Z', '+00:00'))
             return int((end - start).total_seconds() * 1000)
         except Exception:
             return 0

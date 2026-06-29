@@ -35,9 +35,9 @@ async def search_linkedin(name: str = "", company: str = "", query: str = "", ar
     except Exception as e:
         results = [{"error": str(e)}]
         
-    # Check if DDG search returned errors or empty results, and fall back to Serper/Google Search tool
+    # Check if DDG search returned errors or empty results, and fall back to local SearchTool
     if not results or (isinstance(results, list) and results and "error" in results[0]):
-        print(f"[search_linkedin] DuckDuckGo search failed or rate-limited. Using Google/Serper SearchTool fallback...")
+        print(f"[search_linkedin] DuckDuckGo search failed. Using SearchTool fallback...")
         try:
             from app.tools.search_tool import SearchTool
             search_tool = SearchTool()

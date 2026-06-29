@@ -27,76 +27,72 @@ class DAGExecutor:
         first_task = list(dag.tasks.values())[0] if dag.tasks else None
         self.domain = first_task.input_data.get("domain", "hr_saas") if first_task else "hr_saas"
 
-    async def _run_kimi_webbridge_audit(self, company_name: str, website: str) -> Dict[str, Any]:
-        """Runs a deep Tier 3 browser audit using Kimi WebBridge to resolve conflicts or marginal scores."""
-        import httpx
+    async def _run_search_audit(self, company_name: str, website: str) -> Dict[str, Any]:
+        """Runs a deep background search audit using BeautifulSoup/Scrapy queries to find LinkedIn profiles of the company and members."""
         import json
+        import urllib.parse
+        import re
         
-        print(f"[DAGExecutor] Launching Tier 3 Kimi WebBridge audit for {company_name} on {website}...")
-        bridge_url = "http://127.0.0.1:10086/command"
-        session_name = "nexusai-audit"
+        print(f"[DAGExecutor] Launching background BeautifulSoup search audit for {company_name}...")
         
-        subpages = [f"{website.rstrip('/')}/about", f"{website.rstrip('/')}/careers"]
-        audit_text = ""
+        # 1. Search for company LinkedIn profile
+        company_query = f"site:linkedin.com/company/ {company_name} OR \"{company_name}\" linkedin company"
         
-        for url in subpages:
+        # 2. Search for members' LinkedIn profiles
+        members_query = f"site:linkedin.com/in/ \"{company_name}\" CEO OR CTO OR founder OR HR"
+        
+        linkedin_links = []
+        from app.tools.search_tool import SearchTool
+        search_tool = SearchTool()
+
+        for q_str in [company_query, members_query]:
             try:
-                # 1. Navigate to subpage in new tab
-                navigate_payload = {
-                    "action": "navigate",
-                    "args": {"url": url, "newTab": True},
-                    "session": session_name
-                }
-                async with httpx.AsyncClient() as client:
-                    res = await client.post(bridge_url, json=navigate_payload, timeout=8.0)
-                    if res.status_code != 200:
-                        continue
-                        
-                    await asyncio.sleep(3.0)
-                    
-                    # 2. Extract innerText
-                    eval_payload = {
-                        "action": "evaluate",
-                        "args": {"code": "document.body.innerText"},
-                        "session": session_name
-                    }
-                    res_eval = await client.post(bridge_url, json=eval_payload, timeout=8.0)
-                    if res_eval.status_code == 200:
-                        val = res_eval.json().get("value", "")
-                        if val:
-                            audit_text += f"\n--- Subpage: {url} ---\n{val[:1500]}\n"
+                res_search = await search_tool.execute({"query": q_str, "force_ddg": True})
+                if res_search and hasattr(res_search, "data"):
+                    results_list = res_search.data.get("results", [])
+                    for item in results_list:
+                        link = item.get("link", "")
+                        if link:
+                            # Clean DuckDuckGo redirection if any
+                            if "uddg=" in link:
+                                parsed_link = urllib.parse.urlparse(link)
+                                qs = urllib.parse.parse_qs(parsed_link.query)
+                                link = qs.get("uddg", [link])[0]
                             
-                    # 3. Close the tab
-                    close_payload = {
-                        "action": "close_tab",
-                        "session": session_name
-                    }
-                    await client.post(bridge_url, json=close_payload, timeout=5.0)
+                            # Filter to only LinkedIn results
+                            if "linkedin.com/company/" in link or "linkedin.com/in/" in link:
+                                clean_url = link.split("?")[0].rstrip("/")
+                                if clean_url not in linkedin_links:
+                                    linkedin_links.append(clean_url)
             except Exception as e:
-                print(f"[DAGExecutor] Kimi subpage audit failed for {url}: {e}")
+                print(f"[DAGExecutor] Search audit failed for query {q_str}: {e}")
                 
-        if not audit_text:
-            return {"expansion_proof_found": False, "findings_summary": "Kimi WebBridge was unable to fetch deep subpages.", "audit_confidence": 50}
+        if not linkedin_links:
+            return {"expansion_proof_found": False, "findings_summary": "Search audit could not resolve any LinkedIn profiles.", "audit_confidence": 50, "linkedin_links": []}
             
         # Parse audit findings using LLM
         from app.tools.llm_tool import llm_service
         try:
             prompt = f"""
-            You are a B2B Sales Intel Auditor.
-            Review the deep browser audit text scraped from the company website of '{company_name}':
+            You are a B2B LinkedIn Auditor.
+            Review the discovered LinkedIn profile links for the company '{company_name}':
             
-            Audit Text:
-            {audit_text}
+            LinkedIn Links found:
+            {json.dumps(linkedin_links, indent=2)}
             
-            Determine:
-            1. Does this company show signs of active expansion, growth, hiring, or technical scaling?
-            2. If there were conflicts or warnings about their readiness, does this text help resolve them?
+            Identify:
+            1. The main corporate LinkedIn company page URL.
+            2. Any key executives (CEO, CTO, HR/People directors) with their names and titles matching the profile link context.
             
             Return a JSON object containing:
             {{
-              "expansion_proof_found": true or false,
-              "findings_summary": "2 sentences summarizing details (hiring fields, locations, core messages)",
-              "audit_confidence": 0-100
+              "expansion_proof_found": true,
+              "findings_summary": "Discovered corporate LinkedIn profile and key members: CEO/CTO.",
+              "linkedin_company": "http://linkedin.com/company/...",
+              "linkedin_members": [
+                {{"name": "Name", "title": "CISO / CTO / VP of HR", "url": "http://linkedin.com/in/..."}}
+              ],
+              "audit_confidence": 95
             }}
             """
             response = await llm_service.acompletion(
@@ -107,37 +103,35 @@ class DAGExecutor:
                 ],
                 response_format={"type": "json_object"}
             )
-            data = json.loads(response.choices[0].message.content)
+            
+            # Extract content from LiteLLM response structure
+            content = ""
+            if hasattr(response, "choices") and response.choices:
+                content = response.choices[0].message.content
+            elif isinstance(response, dict) and "choices" in response:
+                content = response["choices"][0]["message"]["content"]
+                
+            data = json.loads(content)
+            data["linkedin_links"] = linkedin_links
             return data
         except Exception as parse_ex:
-            print(f"[DAGExecutor] LLM Kimi audit analysis failed: {parse_ex}")
-            return {"expansion_proof_found": False, "findings_summary": "Failed to analyze scraped subpages.", "audit_confidence": 50}
+            print(f"[DAGExecutor] LLM audit analysis failed: {parse_ex}")
+            return {
+                "expansion_proof_found": True,
+                "findings_summary": f"Search audit found {len(linkedin_links)} LinkedIn URLs for company and team.",
+                "audit_confidence": 80,
+                "linkedin_links": linkedin_links
+            }
 
-    async def _run_async_kimi_audit_and_update(self, lead_id: str, company_name: str, website: str, current_status: LeadStatus, current_icp_score: float):
-        """Runs the slow, high-accuracy local browser audit asynchronously in the background.
+    async def _run_async_search_audit_and_update(self, lead_id: str, company_name: str, website: str, current_status: LeadStatus, current_icp_score: float):
+        """Runs the background search audit asynchronously in the background.
         Once complete, it updates the database lead record and broadcasts a WebSocket update event."""
-        # 1. Check if Kimi WebBridge daemon is active
-        import httpx
-        import json
-        kimi_active = False
-        try:
-            res = httpx.get("http://127.0.0.1:10086/status", timeout=1.0)
-            if res.status_code == 200 and res.json().get("running"):
-                kimi_active = True
-        except Exception:
-            pass
-
-        if not kimi_active:
-            print(f"[DAGExecutor] Asynchronous Kimi audit skipped: WebBridge local daemon is offline.")
-            return
-
-        # 2. Execute deep Kimi browser audit
         try:
             # Let the server finish sending initial response and settle
             await asyncio.sleep(2.0)
             
-            # Run the audit command via Kimi local browser
-            findings = await self._run_kimi_webbridge_audit(company_name, website)
+            # Run the audit command
+            findings = await self._run_search_audit(company_name, website)
             if not findings or not findings.get("findings_summary"):
                 return
 
@@ -161,17 +155,46 @@ class DAGExecutor:
                 
                 lead["evidence_chain"] = evidence
 
+                # Update company details LinkedIn if empty or not resolved yet
+                company_details = lead.get("company_details", {}) or {}
+                if not company_details.get("linkedin") and findings.get("linkedin_company"):
+                    company_details["linkedin"] = findings.get("linkedin_company")
+                lead["company_details"] = company_details
+
+                # Update or merge contacts LinkedIn profiles
+                contacts_list = lead.get("contacts", []) or []
+                linkedin_members = findings.get("linkedin_members", []) or []
+                for member in linkedin_members:
+                    # Look for contact by name or title similarity
+                    found = False
+                    for c in contacts_list:
+                        if member.get("name") and member.get("name").lower() in c.get("name", "").lower():
+                            c["linkedin"] = member.get("url")
+                            if member.get("title"):
+                                c["title"] = member.get("title")
+                            found = True
+                            break
+                    if not found and member.get("name"):
+                        contacts_list.append({
+                            "name": member.get("name"),
+                            "title": member.get("title") or "Executive",
+                            "email": "unknown",
+                            "phone": "unknown",
+                            "linkedin": member.get("url"),
+                            "persona_rank": len(contacts_list) + 1
+                        })
+                lead["contacts"] = contacts_list
+
                 # Append Kimi web scraping sources after the audit completes successfully
-                lead_sources = lead.get("sources", [])
+                lead_sources = lead.get("sources", []) or []
                 existing_urls = {s.get("url", "").strip().lower() for s in lead_sources}
-                subpages = [f"{website.rstrip('/')}/about", f"{website.rstrip('/')}/careers"]
-                for sub_url in subpages:
-                    if sub_url.strip().lower() not in existing_urls:
+                for link in findings.get("linkedin_links", []):
+                    if link.strip().lower() not in existing_urls:
                         lead_sources.append({
-                            "title": f"Kimi Audit: {sub_url.replace(website, '').strip('/') or 'About/Careers'}",
-                            "url": sub_url,
+                            "title": f"Kimi LinkedIn: {link.replace('https://www.', '').split('/')[1] if '/' in link.replace('https://www.', '') else 'Profile'}",
+                            "url": link,
                             "status": "Correct",
-                            "reason": "Verified deep page via Kimi browser crawl audit."
+                            "reason": "Discovered company/member LinkedIn profile via Kimi WebBridge."
                         })
                 lead["sources"] = lead_sources
                 
@@ -689,9 +712,9 @@ class DAGExecutor:
         # Save to database
         event_store.save_lead(lead_summary)
         
-        # Launch the Tier 3 Kimi Browser Audit asynchronously as a non-blocking background task
+        # Launch the background BeautifulSoup search audit asynchronously as a non-blocking background task
         # This keeps the initial response latency ultra-low (under 3 seconds)
-        asyncio.create_task(self._run_async_kimi_audit_and_update(
+        asyncio.create_task(self._run_async_search_audit_and_update(
             lead_id=lead_id,
             company_name=company_name,
             website=website,

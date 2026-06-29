@@ -369,8 +369,10 @@ class LLMService:
 
         # 3. Company Enricher Agent & Tool
         if "enrichment specialist" in prompt or "business intelligence specialist" in prompt:
+            is_cyber = "cybersecurity" in prompt or "cyber" in prompt or "securden" in prompt or "wiz" in prompt or "armis" in prompt or "snyk" in prompt
+            
             if found_company:
-                return json.dumps({
+                comp_details = {
                     "name": found_company.get("name", company_name),
                     "industry": found_company.get("industry", "Software"),
                     "employees": found_company.get("employees", 120),
@@ -383,26 +385,53 @@ class LLMService:
                     "website": found_company.get("website", real_website),
                     "linkedin": found_company.get("linkedin", real_linkedin),
                     "description": found_company.get("description", f"{company_name} is a leading enterprise.")
-                })
+                }
+            else:
+                comp_details = {
+                    "name": company_name,
+                    "industry": real_industry or ("Cybersecurity Tools" if is_cyber else "HR SaaS / Fintech"),
+                    "employees": real_employees,
+                    "founded": 2020,
+                    "hq": real_hq or ("Chennai, India" if is_cyber else "Bengaluru, India"),
+                    "tech_stack": ["React", "AWS", "Python", "Docker"] if is_cyber else ["Node.js", "React", "PostgreSQL"],
+                    "current_hr_tool": "Excel" if is_cyber else "Gusto",
+                    "recent_funding": {
+                        "round": "Series A",
+                        "amount_usd": 15000000,
+                        "date": "2025-10-10"
+                    },
+                    "growth_rate": "40% headcount growth",
+                    "website": real_website,
+                    "linkedin": real_linkedin,
+                    "description": f"{company_name} is a leading provider of software solutions catering to enterprise accounts globally."
+                }
                 
-            is_cyber = "cybersecurity" in prompt or "cyber" in prompt or "securden" in prompt or "wiz" in prompt or "armis" in prompt or "snyk" in prompt
+            mock_contacts = []
+            if found_contacts:
+                for c in found_contacts:
+                    mock_contacts.append({
+                        "name": c.get("name", "Unknown Contact"),
+                        "title": c.get("title", "Executive"),
+                        "email": c.get("email"),
+                        "phone": c.get("phone"),
+                        "linkedin": c.get("linkedin"),
+                        "role": "Decision Maker"
+                    })
+            else:
+                mock_contacts = [
+                    {
+                        "name": "Sarah Jenkins" if is_cyber else "John Doe",
+                        "title": "Chief Information Security Officer" if is_cyber else "VP of HR",
+                        "email": "sarah@cyber.com" if is_cyber else "john@hrsaas.com",
+                        "phone": "+1-555-0199",
+                        "linkedin": "https://linkedin.com/in/mock-executive",
+                        "role": "Decision Maker"
+                    }
+                ]
+                
             return json.dumps({
-                "name": company_name,
-                "industry": real_industry or ("Cybersecurity Tools" if is_cyber else "HR SaaS / Fintech"),
-                "employees": real_employees,
-                "founded": 2020,
-                "hq": real_hq or ("Chennai, India" if is_cyber else "Bengaluru, India"),
-                "tech_stack": ["React", "AWS", "Python", "Docker"] if is_cyber else ["Node.js", "React", "PostgreSQL"],
-                "current_hr_tool": "Excel" if is_cyber else "Gusto",
-                "recent_funding": {
-                    "round": "Series A",
-                    "amount_usd": 15000000,
-                    "date": "2025-10-10"
-                },
-                "growth_rate": "40% headcount growth",
-                "website": real_website,
-                "linkedin": real_linkedin,
-                "description": f"{company_name} is a leading provider of software solutions catering to enterprise accounts globally."
+                "company_details": comp_details,
+                "contacts": mock_contacts
             })
 
         # 4. ICP Matcher Agent

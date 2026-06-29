@@ -23,7 +23,7 @@ export default function LeadsView({
 }: LeadsViewProps) {
   const [expandedIcpId, setExpandedIcpId] = useState<string | null>(null);
   const [domainFilter, setDomainFilter] = useState<'all' | 'hr_saas' | 'cybersecurity'>('all');
-  const [leadTab, setLeadTab] = useState<'approved' | 'pending' | 'disqualified' | 'all_scans'>('approved');
+  const [leadTab, setLeadTab] = useState<'approved' | 'pending' | 'disqualified' | 'all_scans'>('all_scans');
   
   // Calculate counts for tab headers
   const approvedCount = leads.filter(l => l.status === 'approved').length;

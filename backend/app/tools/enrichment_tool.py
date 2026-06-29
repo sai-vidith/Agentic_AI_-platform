@@ -153,29 +153,27 @@ class EnrichmentTool(BaseTool):
                 if not linkedin_url:
                     linkedin_url = f"https://www.linkedin.com/company/{company_name.lower().replace(' ', '')}"
 
-                # 3. Try to scrape the company homepage via Firecrawl
-                from app.config import settings
-                fc_key = (settings.FIRECRAWL_API_KEY or "").strip('"\'')
+                # 3. Try to scrape the company homepage via BeautifulSoup
                 markdown_content = None
-                if fc_key and fc_key != "mock_firecrawl_key" and len(fc_key) > 5:
-                    try:
-                        print(f"[EnrichmentTool] Scraping homepage via Firecrawl: {website}")
-                        api_url = "https://api.firecrawl.dev/v1/scrape"
-                        headers = {
-                            "Authorization": f"Bearer {fc_key}",
-                            "Content-Type": "application/json"
-                        }
-                        payload = {
-                            "url": website,
-                            "formats": ["markdown"]
-                        }
-                        response = requests.post(api_url, json=payload, headers=headers, timeout=12.0)
-                        if response.status_code == 200:
-                            res_data = response.json()
-                            if res_data.get("success"):
-                                markdown_content = res_data.get("data", {}).get("markdown", "")
-                    except Exception as fcex:
-                        print(f"[EnrichmentTool] Firecrawl scrape failed: {fcex}")
+                try:
+                    print(f"[EnrichmentTool] Scraping homepage via BeautifulSoup: {website}")
+                    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                    response = requests.get(website, headers=headers, timeout=10.0, verify=False)
+                    if response.status_code == 200:
+                        from bs4 import BeautifulSoup
+                        soup = BeautifulSoup(response.text, "lxml")
+                        # Strip standard formatting elements
+                        for tag in soup(["script", "style", "nav", "header", "footer", "noscript", "svg"]):
+                            tag.decompose()
+                        raw_text = soup.get_text(separator="\n")
+                        clean_lines = []
+                        for line in raw_text.splitlines():
+                            stripped = line.strip()
+                            if stripped and len(stripped) > 3:
+                                clean_lines.append(stripped)
+                        markdown_content = "\n".join(clean_lines)[:6000]
+                except Exception as sc_ex:
+                    print(f"[EnrichmentTool] BeautifulSoup scrape failed: {sc_ex}")
 
                 # 4. Retrieve general web summary data as fallback
                 summary = ""

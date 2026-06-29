@@ -66,7 +66,7 @@ class EventStore:
         if not self.use_fallback:
             try:
                 # We use SQLite as the default Database engine
-                self.engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {})
+                self.engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 30.0} if "sqlite" in settings.DATABASE_URL else {})
                 Base.metadata.create_all(self.engine)
                 
                 # Dynamically alter table to add columns if they don't exist

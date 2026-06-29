@@ -19,6 +19,12 @@ async def command(payload: Dict[str, Any] = Body(...)):
         code = args.get("code", "")
         if "document.title" in code:
             return {"value": "Mock Kimi Audited Page Title"}
+        elif "querySelectorAll" in code or "map" in code:
+            return {"value": [
+                "https://www.linkedin.com/company/vanta",
+                "https://www.linkedin.com/in/nathan-hunstad-2625b73",
+                "https://www.linkedin.com/in/sarah-jenkins-ciso"
+            ]}
         else:
             return {"value": "Mock Kimi WebBridge Audit Result: Verified active recruitment for security roles, headcount growth +30% in 2025, and Series B funding injection."}
             

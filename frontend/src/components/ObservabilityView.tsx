@@ -27,8 +27,9 @@ export default function ObservabilityView({
     }));
   };
 
-  const cleanSpanName = (name: string) => {
-    return name.replace('_', ' ').replace('agent', '').toUpperCase();
+  const cleanSpanName = (name: any) => {
+    if (typeof name !== 'string') return 'UNKNOWN';
+    return name.replace(/_/g, ' ').replace(/agent/gi, '').toUpperCase().trim() || 'SPAN';
   };
 
   const avgLatency = 1.85;
@@ -116,18 +117,21 @@ export default function ObservabilityView({
               {selectedTraceSpans && selectedTraceSpans.length > 0 ? (
                 <div className="space-y-3.5 w-full">
                   {selectedTraceSpans.map((span, idx) => {
-                    const duration = span.end_time ? (span.end_time - span.start_time) : 0.8;
-                    const cleanName = cleanSpanName(span.name);
-                    const isFailed = span.metadata?.state === 'failed';
+                    if (!span) return null;
+                    const startTime = typeof span.start_time === 'number' ? span.start_time : new Date(span.start_time || 0).getTime() / 1000;
+                    const endTime = typeof span.end_time === 'number' ? span.end_time : new Date(span.end_time || 0).getTime() / 1000;
+                    const duration = (endTime && startTime) ? Math.max(0.01, endTime - startTime) : 0.8;
+                    const cleanName = cleanSpanName(span.name || span.operation);
+                    const isFailed = span.metadata?.state === 'failed' || span.status === 'failed';
                     
                     return (
-                      <div key={span.id} className="grid grid-cols-12 items-center gap-3 text-[10px] font-mono">
+                      <div key={span.id || idx} className="grid grid-cols-12 items-center gap-3 text-[10px] font-mono">
                         <div className="col-span-3 font-semibold text-secondary truncate">{cleanName}</div>
                         <div className="col-span-7 bg-base border border-strong rounded p-1 h-7 flex items-center">
                           <div
                             style={{
                               width: `${Math.min(100, Math.max(12, duration * 20))}%`,
-                              marginLeft: `${idx * 8}%`
+                              marginLeft: `${Math.min(70, idx * 8)}%`
                             }}
                             className={`h-4.5 rounded-sm transition-all duration-300 ${isFailed ? 'bg-danger' : 'bg-accent'}`}
                           />

@@ -1,16 +1,22 @@
 import httpx
-from typing import Dict, Any
+import json
+import re
+import urllib.parse
+from bs4 import BeautifulSoup
+from typing import Dict, Any, Optional, List
 from app.tools.base_tool import BaseTool, ToolResult
 from app.config import settings
+from app.tools.llm_tool import llm_service
 
 class SearchTool(BaseTool):
-    """Google Search tool wrapping Serper.dev."""
-    
+    """
+    SearchTool provides keyless search capabilities by scraping DuckDuckGo HTML results natively.
+    Removes all external dependencies on commercial APIs (Serper.dev, Tavily).
+    """
     def __init__(self):
         super().__init__(name="search_tool")
 
     def _slice_golden_data(self, golden_data: Dict[str, Any]) -> Any:
-        # Return company info & triggers as search result summary
         company = golden_data.get("company", {})
         triggers = golden_data.get("triggers", [])
         return {
@@ -32,111 +38,69 @@ class SearchTool(BaseTool):
     async def _execute_live(self, params: Dict[str, Any]) -> ToolResult:
         query = params.get("query", "")
         if not query:
-            return ToolResult(data={"results": []}, source="search_live")
-            
-        # Try Tavily Search first if available (Tavily has a free tier of 1,000 requests/month)
-        tavily_key = (settings.TAVILY_API_KEY or "").strip('"\'')
-        if tavily_key and tavily_key != "mock_tavily_key" and len(tavily_key) > 5:
-            try:
-                url = "https://api.tavily.com/search"
-                payload = {
-                    "api_key": tavily_key,
-                    "query": query,
-                    "search_depth": "basic",
-                    "max_results": 5
-                }
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(url, json=payload, timeout=10.0)
-                    if response.status_code == 200:
-                        data = response.json()
-                        results = []
-                        for item in data.get("results", []):
-                            results.append({
-                                "title": item.get("title"),
-                                "snippet": item.get("content"),
-                                "link": item.get("url")
-                            })
-                        return ToolResult(
-                            data={"results": results},
-                            source="search_live_tavily",
-                            latency_ms=int(response.elapsed.total_seconds() * 1000)
-                        )
-            except Exception as e:
-                print(f"Tavily search failed, trying Serper fallback: {e}")
+            return ToolResult(data={"results": []}, source="search_empty")
 
-        # Try Serper first if available
-        if settings.SERPER_API_KEY and settings.SERPER_API_KEY != "mock_serper_key":
-            try:
-                url = "https://google.serper.dev/search"
-                payload = {"q": query}
-                headers = {
-                    'X-API-KEY': settings.SERPER_API_KEY,
-                    'Content-Type': 'application/json'
-                }
-                
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(url, json=payload, headers=headers, timeout=10.0)
-                    if response.status_code == 200:
-                        data = response.json()
-                        organic = data.get("organic", [])
-                        results = []
-                        for item in organic[:5]:
-                            results.append({
-                                "title": item.get("title"),
-                                "snippet": item.get("snippet"),
-                                "link": item.get("link")
-                            })
-                        return ToolResult(data={"results": results}, source="search_live_serper", latency_ms=int(response.elapsed.total_seconds() * 1000))
-            except Exception as e:
-                print(f"Serper search failed, trying DuckDuckGo fallback: {e}")
+        ddg_res = await self._run_ddg_html_search(query)
+        if ddg_res and ddg_res.data.get("results"):
+            return ddg_res
 
-        # Try DuckDuckGo HTML scraper fallback (completely keyless)
-        import urllib.parse
-        from selectolax.parser import HTMLParser
+        return await self._get_fallback_mock_data(query, params, "DuckDuckGo search failed or rate-limited")
+
+    async def _run_ddg_html_search(self, query: str) -> Optional[ToolResult]:
         try:
             ddg_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
-            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-            async with httpx.AsyncClient() as client:
-                response = await client.get(ddg_url, headers=headers, timeout=10.0)
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5"
+            }
+            async with httpx.AsyncClient(follow_redirects=True) as client:
+                response = await client.get(ddg_url, headers=headers, timeout=12.0)
                 if response.status_code == 200:
-                    parser = HTMLParser(response.text)
+                    soup = BeautifulSoup(response.text, "lxml")
                     results = []
-                    for link_node in parser.css(".result__body")[:5]:
-                        title_el = link_node.css_first(".result__title a")
-                        snippet_el = link_node.css_first(".result__snippet")
+                    
+                    # DuckDuckGo HTML results list is structured with class "result__body"
+                    for result in soup.find_all("div", class_="result__body")[:5]:
+                        title_el = result.find("a", class_="result__url")
+                        snippet_el = result.find("a", class_="result__snippet") or result.find(class_="result__snippet")
+                        
                         if title_el:
-                            title = title_el.text().strip()
-                            href = title_el.attributes.get("href", "")
+                            title = title_el.get_text().strip()
+                            href = title_el.get("href", "")
+                            
+                            # Clean uddg query param from DDG redirect url if present
                             if "uddg=" in href:
                                 parsed_href = urllib.parse.urlparse(href)
                                 qs = urllib.parse.parse_qs(parsed_href.query)
                                 href = qs.get("uddg", [href])[0]
                             elif href.startswith("//"):
                                 href = "https:" + href
-                            
-                            snippet = snippet_el.text().strip() if snippet_el else ""
+                                
+                            snippet = snippet_el.get_text().strip() if snippet_el else ""
                             results.append({
                                 "title": title,
                                 "snippet": snippet,
                                 "link": href
                             })
+                            
                     if results:
                         return ToolResult(
                             data={"results": results},
-                            source="search_duckduckgo_fallback",
+                            source="search_beautifulsoup4_ddg",
                             latency_ms=int(response.elapsed.total_seconds() * 1000)
                         )
         except Exception as e:
-            print(f"DuckDuckGo fallback search failed: {e}")
-
-        return await self._get_fallback_mock_data(query, params, "Both Serper and DuckDuckGo search failed")
+            print(f"[SearchTool] DuckDuckGo search exception: {e}")
+        return None
 
     async def _get_fallback_mock_data(self, query: str, params: Dict[str, Any], live_error: str) -> ToolResult:
-        # Generate some smart generic search results for standard queries
-        query_lower = query.lower()
+        if not settings.ALLOW_MOCK_FALLBACK:
+            raise ValueError(f"SearchTool failed on query '{query}': {live_error}")
+            
         results = [
             {
-                "title": f"Recent News about {query}",
+                "title": f"Recent news about {query}",
                 "snippet": f"Startup {query} is seeing significant traction, expanding operations and hiring across core departments.",
                 "link": "https://news.google.com"
             },
@@ -151,13 +115,9 @@ class SearchTool(BaseTool):
 async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
     """Runs multiple intensive search queries to discover a broad pool of B2B target startups."""
     import asyncio
-    import json
-    from pathlib import Path
-    from app.config import BASE_DIR
-    from app.tools.search_tool import SearchTool
-    from app.tools.llm_tool import llm_service
     
     # Check custom mock file first (Latency and Custom Domain optimization)
+    from app.config import BASE_DIR
     mock_file = BASE_DIR / "app" / "mock_data" / f"{domain}_mock.json"
     if mock_file.exists():
         try:
@@ -193,7 +153,7 @@ async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
     search_tool = SearchTool()
     domain_clean = domain.replace('_', ' ')
     
-    # 5 highly focused search angles targeting both global and Indian/domestic startups
+    # Focused search angles targeting both global and Indian/domestic startups
     queries = [
         f"recently funded {domain_clean} startups 2026",
         f"top rising {domain_clean} companies list 2026",
@@ -254,7 +214,14 @@ async def discover_companies_from_web(domain: str, limit: int = 5) -> list[str]:
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
-        content = response.choices[0].message.content
+        
+        # Parse LiteLLM completion output format safely
+        content = ""
+        if hasattr(response, "choices") and response.choices:
+            content = response.choices[0].message.content
+        elif isinstance(response, dict) and "choices" in response:
+            content = response["choices"][0]["message"]["content"]
+            
         data = json.loads(content)
         discovered_companies = data.get("companies", [])
     except Exception as e:
